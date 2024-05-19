@@ -7,7 +7,8 @@
   "license": "MIT",
   "scripts": {
     "auth": "node auth.js",
-    "query": "node scripts/query_db.js ${NOTION_DB_ID_1}"
+    "query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
+    "search": "node scripts/search.js"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15"
