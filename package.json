@@ -6,9 +6,12 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "auth": "node auth.js",
-    "query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
-    "search": "node scripts/search.js"
+    "auth": "node scripts/auth.js",
+    "search": "node scripts/search.js",
+    "query1": "node scripts/query_db.js ${NOTION_DB_ID_1}",
+    "query2": "node scripts/query_db.js ${NOTION_DB_ID_2}",
+    "query3": "node scripts/query_db.js ${NOTION_DB_ID_3}",
+    "query4": "node scripts/query_db.js ${NOTION_DB_ID_4}"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15"

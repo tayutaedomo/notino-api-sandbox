@@ -6,6 +6,13 @@ async function main() {
 
   const response = await notion.databases.query({
     database_id: databaseId,
+    page_size: 3,
+    sorts: [
+      {
+        property: 'Created time',
+        direction: 'descending', // or ascending
+      },
+    ],
   });
   console.log('Got response:', response);
 }
