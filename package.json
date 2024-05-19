@@ -6,5 +6,8 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15"
   }
 }
