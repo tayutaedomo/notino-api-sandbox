@@ -1,0 +1,10 @@
+{
+  "name": "notino-api-sandbox",
+  "version": "0.1.0",
+  "description": "Try Notion API with Javascript",
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+  }
+}
