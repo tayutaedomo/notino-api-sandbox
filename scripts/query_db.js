@@ -15,6 +15,10 @@ async function main() {
     ],
   });
   console.log('Got response:', response);
+
+  if (response.results.length > 0) {
+    console.log(JSON.stringify(response.results[0], null, 2));
+  }
 }
 
 main()
