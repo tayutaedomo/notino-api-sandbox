@@ -8,11 +8,13 @@
   "scripts": {
     "auth": "node scripts/auth.js",
     "search": "node scripts/search.js",
-    "query1": "node scripts/query_db.js ${NOTION_DB_ID_1}",
-    "query2": "node scripts/query_db.js ${NOTION_DB_ID_2}",
-    "query3": "node scripts/query_db.js ${NOTION_DB_ID_3}",
-    "query4": "node scripts/query_db.js ${NOTION_DB_ID_4}",
-    "create": "node scripts/create_page.js ${NOTION_DB_ID_1} 'Retro'"
+    "retro:query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
+    "retro:create": "node scripts/create_page.js ${NOTION_DB_ID_1} 'Retro'",
+    "body:query": "node scripts/query_db.js ${NOTION_DB_ID_2}",
+    "body:create": "node scripts/create_page.js ${NOTION_DB_ID_2} 'Body'",
+    "sleep:query": "node scripts/query_db.js ${NOTION_DB_ID_3}",
+    "sleep:create": "node scripts/create_page.js ${NOTION_DB_ID_3} 'Sleep'",
+    "diary:query4": "node scripts/query_db.js ${NOTION_DB_ID_4}"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15"
