@@ -16,6 +16,7 @@
     "sleep:create": "node scripts/create_page.js ${NOTION_DB_ID_3} 'Sleep'",
     "diary:query": "node scripts/query_db.js ${NOTION_DB_ID_4}",
     "diary:retrieve": "node scripts/retrieve_page.js ${NOTION_PAGE_ID}",
+    "diary:dup": "node scripts/duplicate_page.js ${NOTION_DB_ID_4}",
     "all:create": "yarn retro:create && yarn body:create && yarn sleep:create"
   },
   "dependencies": {
