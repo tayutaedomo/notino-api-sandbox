@@ -6,7 +6,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "all:create": "yarn retro:create && yarn body:create && yarn sleep:create",
+    "all:create": "yarn retro:create && yarn body:create && yarn sleep:create && yarn diary:dup",
     "auth": "node scripts/auth.js",
     "search": "node scripts/search.js",
     "retro:query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
