@@ -6,6 +6,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
+    "all:create": "yarn retro:create && yarn body:create && yarn sleep:create && yarn diary:dup",
     "auth": "node scripts/auth.js",
     "search": "node scripts/search.js",
     "retro:query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
@@ -14,8 +15,10 @@
     "body:create": "node scripts/create_page.js ${NOTION_DB_ID_2} 'Body'",
     "sleep:query": "node scripts/query_db.js ${NOTION_DB_ID_3}",
     "sleep:create": "node scripts/create_page.js ${NOTION_DB_ID_3} 'Sleep'",
-    "diary:query4": "node scripts/query_db.js ${NOTION_DB_ID_4}",
-    "all:create": "yarn retro:create && yarn body:create && yarn sleep:create"
+    "diary:query": "node scripts/query_db.js ${NOTION_DB_ID_4}",
+    "diary:page": "node scripts/retrieve_page.js ${NOTION_PAGE_ID}",
+    "diary:blocks": "node scripts/retrieve_blocks.js ${NOTION_PAGE_ID}",
+    "diary:dup": "node scripts/duplicate_page.js ${NOTION_DB_ID_4}"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15"
