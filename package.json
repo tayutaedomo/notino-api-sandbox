@@ -21,6 +21,8 @@
     "diary:dup": "node scripts/duplicate_page.js ${NOTION_DB_ID_4}"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.15"
+    "@notionhq/client": "^2.2.15",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
   }
 }
