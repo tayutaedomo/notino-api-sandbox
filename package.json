@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "all:create": "yarn retro:create && yarn body:create && yarn sleep:create && yarn diary:dup",
-    "auth": "node scripts/auth.js",
+    "auth": "npx ts-node scripts/auth.ts",
     "search": "node scripts/search.js",
     "retro:query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
     "retro:create": "node scripts/create_page.js ${NOTION_DB_ID_1} 'Retro'",
