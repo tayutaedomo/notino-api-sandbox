@@ -1,13 +1,13 @@
-const { Client } = require('@notionhq/client');
+import { Client } from '@notionhq/client';
 
-async function main() {
+async function main(): Promise<void> {
   const notion = new Client({ auth: process.env.NOTION_KEY });
   const databaseId = process.argv[2];
 
-  // 今日の日付を YYYY-MM-DD の形式で取得する
+  // Get today's date as `YYYY-MM-DD` format
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // タイトルを作成する
+  // Make title
   const titleSuffix = process.argv[3];
   const titleDayStr = todayStr.replace(/-/g, '').slice(2);
   const title = `${titleDayStr} ${titleSuffix}`;
