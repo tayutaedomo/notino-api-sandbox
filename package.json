@@ -17,7 +17,7 @@
     "sleep:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_3} 'Sleep'",
     "diary:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_4}",
     "diary:page": "npx ts-node scripts/retrieve_page.ts ${NOTION_PAGE_ID}",
-    "diary:blocks": "node scripts/retrieve_blocks.js ${NOTION_PAGE_ID}",
+    "diary:blocks": "npx ts-node scripts/retrieve_blocks.ts ${NOTION_PAGE_ID}",
     "diary:dup": "node scripts/duplicate_page.js ${NOTION_DB_ID_4}"
   },
   "dependencies": {
