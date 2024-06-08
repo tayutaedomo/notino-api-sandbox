@@ -1,12 +1,9 @@
-const { Client } = require('@notionhq/client');
+import { Client } from '@notionhq/client';
 
-async function main() {
+async function main(): Promise<void> {
   const notion = new Client({ auth: process.env.NOTION_KEY });
-  const pageId = process.argv[2];
 
-  const response = await notion.pages.retrieve({
-    page_id: pageId,
-  });
+  const response = await notion.users.list({});
   console.log('Got response:', response);
 }
 

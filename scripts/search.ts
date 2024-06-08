@@ -1,9 +1,11 @@
-const { Client } = require('@notionhq/client');
+import { Client } from '@notionhq/client';
 
-async function main() {
+async function main(): Promise<void> {
   const notion = new Client({ auth: process.env.NOTION_KEY });
 
-  const response = await notion.users.list({});
+  const response = await notion.search({
+    query: '',
+  });
   console.log('Got response:', response);
 }
 

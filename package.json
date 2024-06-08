@@ -7,20 +7,22 @@
   "license": "MIT",
   "scripts": {
     "all:create": "yarn retro:create && yarn body:create && yarn sleep:create && yarn diary:dup",
-    "auth": "node scripts/auth.js",
-    "search": "node scripts/search.js",
-    "retro:query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
-    "retro:create": "node scripts/create_page.js ${NOTION_DB_ID_1} 'Retro'",
-    "body:query": "node scripts/query_db.js ${NOTION_DB_ID_2}",
-    "body:create": "node scripts/create_page.js ${NOTION_DB_ID_2} 'Body'",
-    "sleep:query": "node scripts/query_db.js ${NOTION_DB_ID_3}",
-    "sleep:create": "node scripts/create_page.js ${NOTION_DB_ID_3} 'Sleep'",
-    "diary:query": "node scripts/query_db.js ${NOTION_DB_ID_4}",
-    "diary:page": "node scripts/retrieve_page.js ${NOTION_PAGE_ID}",
-    "diary:blocks": "node scripts/retrieve_blocks.js ${NOTION_PAGE_ID}",
-    "diary:dup": "node scripts/duplicate_page.js ${NOTION_DB_ID_4}"
+    "auth": "npx ts-node scripts/auth.ts",
+    "search": "npx ts-node scripts/search.ts",
+    "retro:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_1}",
+    "retro:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_1} 'Retro'",
+    "body:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_2}",
+    "body:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_2} 'Body'",
+    "sleep:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_3}",
+    "sleep:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_3} 'Sleep'",
+    "diary:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_4}",
+    "diary:page": "npx ts-node scripts/retrieve_page.ts ${NOTION_PAGE_ID}",
+    "diary:blocks": "npx ts-node scripts/retrieve_blocks.ts ${NOTION_PAGE_ID}",
+    "diary:dup": "npx ts-node scripts/duplicate_page.ts ${NOTION_DB_ID_4}"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.15"
+    "@notionhq/client": "^2.2.15",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
   }
 }
