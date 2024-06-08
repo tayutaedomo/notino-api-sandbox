@@ -8,7 +8,7 @@
   "scripts": {
     "all:create": "yarn retro:create && yarn body:create && yarn sleep:create && yarn diary:dup",
     "auth": "npx ts-node scripts/auth.ts",
-    "search": "node scripts/search.js",
+    "search": "npx ts-node scripts/search.ts",
     "retro:query": "node scripts/query_db.js ${NOTION_DB_ID_1}",
     "retro:create": "node scripts/create_page.js ${NOTION_DB_ID_1} 'Retro'",
     "body:query": "node scripts/query_db.js ${NOTION_DB_ID_2}",
