@@ -1,6 +1,11 @@
-const { Client } = require('@notionhq/client');
+import { Client } from '@notionhq/client';
+import {
+  BlockObjectResponse,
+  CreatePageResponse,
+  PartialBlockObjectResponse,
+} from '@notionhq/client/build/src/api-endpoints';
 
-async function main() {
+async function main(): Promise<void> {
   const notion = new Client({ auth: process.env.NOTION_KEY });
   const databaseId = process.argv[2];
 
@@ -9,14 +14,17 @@ async function main() {
   // console.log('Got latest page:', JSON.stringify(latestPage, null, 2));
   // console.log('Got latest blocks:', JSON.stringify(latestBlocks));
 
-  const newPage = await createPage(notion, databaseId, latestBlocks);
+  const newPage = await createPage(notion, databaseId);
   console.log('Got new page:', newPage);
 
   const newBlocks = await appendBlocks(notion, newPage.id, latestBlocks);
   console.log('Got new blocks:', JSON.stringify(newBlocks));
 }
 
-async function queryLatestPage(notion, databaseId) {
+async function queryLatestPage(
+  notion: Client,
+  databaseId: string
+): Promise<any> {
   const response = await notion.databases.query({
     database_id: databaseId,
     page_size: 1,
@@ -37,7 +45,10 @@ async function queryLatestPage(notion, databaseId) {
   return response.results.length > 0 ? response.results[0] : null;
 }
 
-async function queryLatestPageBlocks(notion, pageId) {
+async function queryLatestPageBlocks(
+  notion: Client,
+  pageId: string
+): Promise<(PartialBlockObjectResponse | BlockObjectResponse)[]> {
   const response = await notion.blocks.children.list({
     block_id: pageId,
     page_size: 100,
@@ -46,7 +57,10 @@ async function queryLatestPageBlocks(notion, pageId) {
   return response.results.length > 0 ? response.results : [];
 }
 
-async function createPage(notion, databaseId) {
+async function createPage(
+  notion: Client,
+  databaseId: string
+): Promise<CreatePageResponse> {
   const todayStr = new Date().toISOString().split('T')[0];
   const monthStr = todayStr.replace(/-/g, '').slice(0, 6);
   const titleDayStr = todayStr.replace(/-/g, '').slice(2);
@@ -95,15 +109,19 @@ async function createPage(notion, databaseId) {
 //   });
 // }
 
-async function appendBlocks(notion, pageId, sourceBlocks) {
-  const newBlocks = sourceBlocks.map((block) => {
+async function appendBlocks(
+  notion: Client,
+  pageId: string,
+  sourceBlocks: (PartialBlockObjectResponse | BlockObjectResponse)[]
+) {
+  const newBlocks = sourceBlocks.map((block: any) => {
     delete block.id;
     return block;
   });
 
   return await notion.blocks.children.append({
     block_id: pageId,
-    children: newBlocks,
+    children: newBlocks as any,
   });
 }
 
