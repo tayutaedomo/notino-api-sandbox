@@ -5,11 +5,17 @@ async function main(): Promise<void> {
   const databaseId = process.argv[2];
 
   // Get today's date as `YYYY-MM-DD` format
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
 
   // Make title
   const titleSuffix = process.argv[3];
-  const titleDayStr = todayStr.replace(/-/g, '').slice(2);
+  const dateStr = todayStr.replace(/\//g, '-');
+  const titleDayStr = todayStr.replace(/\//g, '').slice(2);
   const title = `${titleDayStr} ${titleSuffix}`;
 
   const newPage = await notion.pages.create({
@@ -29,7 +35,7 @@ async function main(): Promise<void> {
       Date: {
         type: 'date',
         date: {
-          start: todayStr,
+          start: dateStr,
           end: null,
           time_zone: null,
         },
