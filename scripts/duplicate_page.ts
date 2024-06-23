@@ -11,8 +11,6 @@ async function main(): Promise<void> {
 
   const latestPage = await queryLatestPage(notion, databaseId);
   const latestBlocks = await queryLatestPageBlocks(notion, latestPage.id);
-  // console.log('Got latest page:', JSON.stringify(latestPage, null, 2));
-  // console.log('Got latest blocks:', JSON.stringify(latestBlocks));
 
   const newPage = await createPage(notion, databaseId);
   console.log('Got new page:', newPage);
@@ -61,9 +59,14 @@ async function createPage(
   notion: Client,
   databaseId: string
 ): Promise<CreatePageResponse> {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const monthStr = todayStr.replace(/-/g, '').slice(0, 6);
-  const titleDayStr = todayStr.replace(/-/g, '').slice(2);
+  const todayStr = new Date().toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const monthStr = todayStr.replace(/\//g, '').slice(0, 6);
+  const titleDayStr = todayStr.replace(/\//g, '').slice(2);
   const title = `${titleDayStr} Diary`;
 
   return await notion.pages.create({
