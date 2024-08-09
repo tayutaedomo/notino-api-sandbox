@@ -18,7 +18,9 @@
     "diary:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_4}",
     "diary:page": "npx ts-node scripts/retrieve_page.ts ${NOTION_PAGE_ID}",
     "diary:blocks": "npx ts-node scripts/retrieve_blocks.ts ${NOTION_PAGE_ID}",
-    "diary:dup": "npx ts-node scripts/duplicate_page.ts ${NOTION_DB_ID_4}"
+    "diary:dup": "npx ts-node scripts/duplicate_page.ts ${NOTION_DB_ID_4}",
+    "gcf:build": "tsc",
+    "gcf:start": "npx functions-framework --target=helloWorld --source=dist/functions/index.js"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
