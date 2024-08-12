@@ -18,11 +18,22 @@
     "diary:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_4}",
     "diary:page": "npx ts-node scripts/retrieve_page.ts ${NOTION_PAGE_ID}",
     "diary:blocks": "npx ts-node scripts/retrieve_blocks.ts ${NOTION_PAGE_ID}",
-    "diary:dup": "npx ts-node scripts/duplicate_page.ts ${NOTION_DB_ID_4}"
+    "diary:dup": "npx ts-node scripts/duplicate_page.ts ${NOTION_DB_ID_4}",
+    "gcf:build": "tsc",
+    "gcf:predeploy": "yarn gcf:build && cp -v package.json dist/functions && cp -v yarn.lock dist/functions",
+    "gcf:hello": "npx functions-framework --target=helloWorld --source=dist/functions/index.js",
+    "gcf:hello:deploy": "yarn gcf:predeploy && gcloud functions deploy helloWorld --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions",
+    "gcf:auth": "npx functions-framework --target=notionAuth --source=dist/functions/index.js",
+    "gcf:auth:deploy": "yarn gcf:predeploy && gcloud functions deploy notionAuth --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
+    "express": "^4.19.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@google-cloud/functions-framework": "^3.4.2",
+    "@types/express": "^4.17.21"
   }
 }
