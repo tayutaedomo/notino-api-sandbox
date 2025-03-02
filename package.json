@@ -22,13 +22,13 @@
     "gcf:build": "tsc",
     "gcf:predeploy": "yarn gcf:build && cp -v package.json dist/functions && cp -v yarn.lock dist/functions",
     "gcf:hello:local": "npx functions-framework --target=helloWorld --source=dist/functions/index.js",
-    "gcf:hello:deploy": "yarn gcf:predeploy && gcloud functions deploy helloWorld --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions",
+    "gcf:hello:deploy": "yarn gcf:predeploy && gcloud functions deploy helloWorld --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions",
     "gcf:auth:local": "npx functions-framework --target=notionAuth --source=dist/functions/index.js",
-    "gcf:auth:deploy": "yarn gcf:predeploy && gcloud functions deploy notionAuth --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
+    "gcf:auth:deploy": "yarn gcf:predeploy && gcloud functions deploy notionAuth --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
     "gcf:create:local": "npx functions-framework --target=notionCreatePage --source=dist/functions/index.js",
-    "gcf:create:deploy": "yarn gcf:predeploy && gcloud functions deploy notionCreatePage --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
+    "gcf:create:deploy": "yarn gcf:predeploy && gcloud functions deploy notionCreatePage --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
     "gcf:dup:local": "npx functions-framework --target=notionDuplicatePage --source=dist/functions/index.js",
-    "gcf:dup:deploy": "yarn gcf:predeploy && gcloud functions deploy notionDuplicatePage --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY"
+    "gcf:dup:deploy": "yarn gcf:predeploy && gcloud functions deploy notionDuplicatePage --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
