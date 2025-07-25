@@ -11,6 +11,7 @@
     "search": "npx ts-node scripts/search.ts",
     "retro:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_1}",
     "retro:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_1} 'Retro'",
+    "retro:dup": "npx ts-node scripts/copy_page.ts ${NOTION_DB_ID_1} 'Title' 'Retro' 'Created time' 'descending'",
     "body:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_2}",
     "body:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_2} 'Body'",
     "sleep:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_3}",
@@ -19,6 +20,7 @@
     "diary:page": "npx ts-node scripts/retrieve_page.ts ${NOTION_PAGE_ID}",
     "diary:blocks": "npx ts-node scripts/retrieve_blocks.ts ${NOTION_PAGE_ID}",
     "diary:dup": "npx ts-node scripts/duplicate_page.ts ${NOTION_DB_ID_4}",
+    "diary:dup2": "npx ts-node scripts/copy_page.ts ${NOTION_DB_ID_4} 'Name' 'Diary' 'Created time' 'descending'",
     "gcf:build": "tsc",
     "gcf:predeploy": "yarn gcf:build && cp -v package.json dist/functions && cp -v yarn.lock dist/functions",
     "gcf:hello:local": "npx functions-framework --target=helloWorld --source=dist/functions/index.js",
@@ -28,7 +30,9 @@
     "gcf:create:local": "npx functions-framework --target=notionCreatePage --source=dist/functions/index.js",
     "gcf:create:deploy": "yarn gcf:predeploy && gcloud functions deploy notionCreatePage --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
     "gcf:dup:local": "npx functions-framework --target=notionDuplicatePage --source=dist/functions/index.js",
-    "gcf:dup:deploy": "yarn gcf:predeploy && gcloud functions deploy notionDuplicatePage --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY"
+    "gcf:dup:deploy": "yarn gcf:predeploy && gcloud functions deploy notionDuplicatePage --gen2 --region=asia-northeast1 --runtime=nodejs20 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
+    "gcf:copy:local": "npx functions-framework --target=notionCopyPage --source=dist/functions/index.js",
+    "gcf:copy:deploy": "yarn gcf:predeploy && gcloud functions deploy notionCopyPage --gen2 --region=asia-northeast1 --runtime=nodejs22 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
