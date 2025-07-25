@@ -119,6 +119,11 @@ async function appendBlocks(
 ) {
   const newBlocks = sourceBlocks.map((block: any) => {
     delete block.id;
+
+    if (block.type === 'to_do' && block.to_do) {
+      block.to_do.checked = false;
+    }
+
     return block;
   });
 
