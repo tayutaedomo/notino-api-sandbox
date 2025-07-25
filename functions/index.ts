@@ -5,6 +5,7 @@ import {
   CreatePageResponse,
   PartialBlockObjectResponse,
 } from '@notionhq/client/build/src/api-endpoints';
+import { copyPage } from './lib/notion_copy_page';
 
 export const helloWorld = (req: Request, res: Response) => {
   res.send('Hello, World!');
@@ -194,3 +195,41 @@ async function appendBlocks(
     children: newBlocks as any,
   });
 }
+
+// Endpoint: notionCopyPage
+export const notionCopyPage = async (req: Request, res: Response) => {
+  const databaseId = req.query.db as string;
+  const searchProperty = req.query.sp as string;
+  const searchValue = req.query.sv as string;
+  const sortProperty = req.query.so as string;
+  const sortDirection = (req.query.sod as string) || 'descending';
+
+  if (!databaseId || !searchProperty || !searchValue || !sortProperty) {
+    res.status(400).send('Missing required parameters: db, sp, sv, so');
+    return;
+  }
+
+  try {
+    const NOTION_KEY = process.env.NOTION_KEY || '';
+    
+    const result = await copyPage(NOTION_KEY, {
+      databaseId,
+      searchProperty,
+      searchValue,
+      sortProperty,
+      sortDirection,
+    });
+
+    res.json({ 
+      databaseId,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Error copying page:', error);
+    if (error instanceof Error && error.message === 'No matching page found') {
+      res.status(404).send('No matching page found');
+    } else {
+      res.status(500).send('Internal server error');
+    }
+  }
+};
