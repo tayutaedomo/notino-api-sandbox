@@ -1,8 +1,6 @@
 import { Client } from '@notionhq/client';
 import {
-  BlockObjectResponse,
   CreatePageResponse,
-  PartialBlockObjectResponse,
   PageObjectResponse,
   QueryDatabaseParameters,
   CreatePageParameters,
@@ -11,6 +9,32 @@ import {
 type DatabaseFilter = QueryDatabaseParameters['filter'];
 type CreateProperties = CreatePageParameters['properties'];
 type SourceProperties = PageObjectResponse['properties'];
+
+interface NotionUser {
+  id: string;
+  name?: string;
+  avatar_url?: string;
+}
+
+interface NotionParent {
+  type: string;
+  page_id?: string;
+  database_id?: string;
+  workspace?: boolean;
+}
+
+interface BlockWithChildren {
+  id: string;
+  type: string;
+  has_children: boolean;
+  created_time: string;
+  created_by: NotionUser;
+  last_edited_time: string;
+  last_edited_by: NotionUser;
+  parent: NotionParent;
+  children?: BlockWithChildren[];
+  [key: string]: unknown;
+}
 
 export interface CopyPageParams {
   databaseId: string;
@@ -26,11 +50,27 @@ export interface CopyPageResult {
   copiedBlocks: number;
 }
 
-export async function copyPage(notionKey: string, params: CopyPageParams): Promise<CopyPageResult> {
+export async function copyPage(
+  notionKey: string,
+  params: CopyPageParams
+): Promise<CopyPageResult> {
   const notion = new Client({ auth: notionKey });
-  const { databaseId, searchProperty, searchValue, sortProperty, sortDirection = 'descending' } = params;
+  const {
+    databaseId,
+    searchProperty,
+    searchValue,
+    sortProperty,
+    sortDirection = 'descending',
+  } = params;
 
-  const sourcePage = await queryPage(notion, databaseId, searchProperty, searchValue, sortProperty, sortDirection);
+  const sourcePage = await queryPage(
+    notion,
+    databaseId,
+    searchProperty,
+    searchValue,
+    sortProperty,
+    sortDirection
+  );
   if (!sourcePage) {
     throw new Error('No matching page found');
   }
@@ -55,7 +95,7 @@ async function queryPage(
   sortDirection: string
 ): Promise<PageObjectResponse | null> {
   const filter = createFilter(searchProperty, searchValue);
-  
+
   const response = await notion.databases.query({
     database_id: databaseId,
     page_size: 1,
@@ -68,7 +108,9 @@ async function queryPage(
     ],
   });
 
-  return response.results.length > 0 ? (response.results[0] as PageObjectResponse) : null;
+  return response.results.length > 0
+    ? (response.results[0] as PageObjectResponse)
+    : null;
 }
 
 function createFilter(property: string, value: string): DatabaseFilter {
@@ -93,13 +135,47 @@ function createFilter(property: string, value: string): DatabaseFilter {
 async function queryPageBlocks(
   notion: Client,
   pageId: string
-): Promise<(PartialBlockObjectResponse | BlockObjectResponse)[]> {
-  const response = await notion.blocks.children.list({
-    block_id: pageId,
-    page_size: 100,
-  });
+): Promise<BlockWithChildren[]> {
+  return await fetchBlocksRecursively(notion, pageId);
+}
 
-  return response.results.length > 0 ? response.results : [];
+async function fetchBlocksRecursively(
+  notion: Client,
+  blockId: string,
+  depth: number = 0
+): Promise<BlockWithChildren[]> {
+  const blocks: BlockWithChildren[] = [];
+  let cursor: string | undefined = undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await notion.blocks.children.list({
+      block_id: blockId,
+      page_size: 100,
+      start_cursor: cursor,
+    });
+
+    for (const block of response.results) {
+      if ('type' in block) {
+        const blockWithChildren: BlockWithChildren = block as BlockWithChildren;
+
+        if (block.has_children) {
+          blockWithChildren.children = await fetchBlocksRecursively(
+            notion,
+            block.id,
+            depth + 1
+          );
+        }
+
+        blocks.push(blockWithChildren);
+      }
+    }
+
+    hasMore = response.has_more;
+    cursor = response.next_cursor || undefined;
+  }
+
+  return blocks;
 }
 
 async function createPageCopy(
@@ -116,7 +192,10 @@ async function createPageCopy(
     properties,
   };
 
-  if (sourcePage.icon && (sourcePage.icon.type === 'emoji' || sourcePage.icon.type === 'external')) {
+  if (
+    sourcePage.icon &&
+    (sourcePage.icon.type === 'emoji' || sourcePage.icon.type === 'external')
+  ) {
     createPageParams.icon = sourcePage.icon;
   }
 
@@ -219,7 +298,9 @@ function copyProperties(sourceProperties: SourceProperties): CreateProperties {
       case 'last_edited_by':
         break;
       default:
-        console.warn(`Unhandled property type: ${(property as any).type}`);
+        console.warn(
+          `Unhandled property type: ${(property as { type: string }).type}`
+        );
         break;
     }
   }
@@ -230,20 +311,126 @@ function copyProperties(sourceProperties: SourceProperties): CreateProperties {
 async function appendBlocks(
   notion: Client,
   pageId: string,
-  sourceBlocks: (PartialBlockObjectResponse | BlockObjectResponse)[]
+  sourceBlocks: BlockWithChildren[]
 ) {
-  const newBlocks = sourceBlocks.map((block) => {
-    const { id, created_time, created_by, last_edited_time, last_edited_by, parent, ...blockWithoutMetadata } = block as any;
-    
-    if (blockWithoutMetadata.type === 'to_do' && blockWithoutMetadata.to_do) {
-      blockWithoutMetadata.to_do.checked = false;
+  const blocksToAppend: any[] = [];
+  const blocksWithChildrenMap: Map<number, BlockWithChildren[]> = new Map();
+
+  // 最初に親ブロックのみを準備し、子ブロックは別途記録
+  for (let i = 0; i < sourceBlocks.length; i++) {
+    const block = sourceBlocks[i];
+    const {
+      id,
+      created_time,
+      created_by,
+      last_edited_time,
+      last_edited_by,
+      parent,
+      children,
+      ...blockWithoutMetadata
+    } = block;
+
+    // ブロック内容のクリーンアップ
+    const cleanedBlock = cleanBlockContent(blockWithoutMetadata);
+
+    if (cleanedBlock.type === 'to_do' && cleanedBlock.to_do) {
+      (cleanedBlock.to_do as { checked: boolean }).checked = false;
     }
 
-    return blockWithoutMetadata;
+    // 子ブロックがある場合は別途記録（APIには送信しない）
+    if (children && children.length > 0) {
+      blocksWithChildrenMap.set(i, children);
+    }
+
+    blocksToAppend.push(cleanedBlock);
+  }
+
+  // 親ブロックを追加
+  const result = await notion.blocks.children.append({
+    block_id: pageId,
+    children: blocksToAppend,
   });
 
-  return await notion.blocks.children.append({
-    block_id: pageId,
-    children: newBlocks as any,
+  // 子ブロックがあるものについて、順次追加（再帰的に処理）
+  for (const [blockIndex, children] of blocksWithChildrenMap.entries()) {
+    const parentBlockId = result.results[blockIndex].id;
+    await appendBlocks(notion, parentBlockId, children);
+  }
+
+  return result;
+}
+
+function cleanBlockContent(block: any): any {
+  const cleaned = JSON.parse(JSON.stringify(block));
+
+  // rich_textを含むブロックタイプをクリーンアップ
+  const blockTypeProperty = cleaned[cleaned.type];
+  if (blockTypeProperty && blockTypeProperty.rich_text) {
+    blockTypeProperty.rich_text = cleanRichText(blockTypeProperty.rich_text);
+  }
+
+  return cleaned;
+}
+
+function cleanRichText(richText: any[]): any[] {
+  return richText.map((item: any) => {
+    if (item.mention) {
+      if (isValidMention(item.mention)) {
+        return item;
+      } else {
+        return {
+          type: 'text',
+          text: {
+            content: item.plain_text || '[mention]',
+            link: null,
+          },
+          annotations: item.annotations || {},
+        };
+      }
+    }
+    return item;
   });
+}
+
+function isValidMention(mention: any): boolean {
+  const mentionObj = mention;
+
+  // userタイプ
+  if (
+    mentionObj.user?.id &&
+    typeof mentionObj.user.id === 'string' &&
+    mentionObj.user.id.length > 0
+  ) {
+    return true;
+  }
+
+  // pageタイプ
+  if (
+    mentionObj.page?.id &&
+    typeof mentionObj.page.id === 'string' &&
+    mentionObj.page.id.length > 0
+  ) {
+    return true;
+  }
+
+  // databaseタイプ
+  if (
+    mentionObj.database?.id &&
+    typeof mentionObj.database.id === 'string' &&
+    mentionObj.database.id.length > 0
+  ) {
+    return true;
+  }
+
+  // dateタイプ
+  if (mentionObj.date?.start && typeof mentionObj.date.start === 'string') {
+    return true;
+  }
+
+  // template_mentionタイプ
+  if (mentionObj.template_mention?.type) {
+    return true;
+  }
+
+  return false;
 }
