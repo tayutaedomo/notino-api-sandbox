@@ -11,7 +11,7 @@
     "search": "npx ts-node scripts/search.ts",
     "retro:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_1}",
     "retro:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_1} 'Retro'",
-    "retro:dup": "npx ts-node scripts/copy_page.ts ${NOTION_DB_ID_1} 'Title' 'Retro' 'Created time' 'descending'",
+    "retro:dup": "npx ts-node scripts/copy_page.ts ${NOTION_DB_ID_1} 'Name' 'Retro' 'Created time' 'descending'",
     "body:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_2}",
     "body:create": "npx ts-node scripts/create_page.ts ${NOTION_DB_ID_2} 'Body'",
     "sleep:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_3}",

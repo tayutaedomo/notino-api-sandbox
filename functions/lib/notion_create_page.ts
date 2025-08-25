@@ -1,6 +1,10 @@
 import { Client } from '@notionhq/client';
 
-export async function createPage(notion: Client, databaseId: string, titleSuffix: string) {
+export async function createPage(
+  notion: Client,
+  databaseId: string,
+  titleSuffix: string
+) {
   // Get today's date as `YYYY-MM-DD` format
   const todayStr = new Date().toLocaleString('ja-JP', {
     timeZone: 'Asia/Tokyo',
@@ -19,7 +23,7 @@ export async function createPage(notion: Client, databaseId: string, titleSuffix
       database_id: databaseId,
     },
     properties: {
-      Title: {
+      Name: {
         title: [
           {
             text: {
