@@ -5,8 +5,11 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "all:create": "yarn retro:create && yarn body:create && yarn sleep:create && yarn diary:dup",
+    "all:create": "yarn retro:create && yarn body:create && yarn sleep:create",
     "auth": "npx ts-node scripts/auth.ts",
     "search": "npx ts-node scripts/search.ts",
     "retro:query": "npx ts-node scripts/query_db.ts ${NOTION_DB_ID_1}",
