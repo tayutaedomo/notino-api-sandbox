@@ -14,10 +14,10 @@ async function rejects(settings, message) {
 test('実API確認に通常のNOTION_KEYを流用しない', () => rejects({ NOTION_KEY: 'production-must-not-be-used' }, /NOTION_TEST_KEY is required/));
 test('検証DBの不足は接続前に拒否', () => rejects({ NOTION_TEST_KEY: 'test-key' }, /NOTION_TEST_DB_ID_1 is required/));
 test('同じ検証DBの重複指定を拒否', () => rejects({ NOTION_TEST_KEY: 'test-key', ...Object.fromEntries([1,2,3,4].map(i => ['NOTION_TEST_DB_ID_' + i, '00000000-0000-0000-0000-000000000001'])) }, /four distinct/));
-test('検証DBのスキーマ不足は書き込み前に拒否', async () => {
+test('監査のない直接起動は書き込み前に拒否', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'notion-preflight-')); const log = path.join(dir, 'requests.jsonl');
   try {
-    await rejects({ NOTION_TEST_KEY: 'test-key', ...Object.fromEntries([1,2,3,4].map(i => ['NOTION_TEST_DB_ID_' + i, '00000000-0000-0000-0000-' + String(i).padStart(12,'0')])), NOTION_TEST_SCENARIO: 'http', NOTION_TEST_LOG: log }, /Date must be date/);
+    await rejects({ NOTION_TEST_KEY: 'test-key', ...Object.fromEntries([1,2,3,4].map(i => ['NOTION_TEST_DB_ID_' + i, '00000000-0000-0000-0000-' + String(i).padStart(12,'0')])), NOTION_TEST_SCENARIO: 'http', NOTION_TEST_LOG: log }, /Audited integration run is required/);
     assert.equal(existsSync(log), false);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

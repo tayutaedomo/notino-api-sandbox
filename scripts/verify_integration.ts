@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import { setTimeout as wait } from 'node:timers/promises';
 import { isFullPage, isFullBlock, PageObjectResponse, Client } from '@notionhq/client';
 import { createNotionClient, resolveDataSource } from '../functions/lib/notion_client';
 import { copyPage } from '../functions/lib/notion_copy_page';
 import { duplicatePage } from '../functions/lib/notion_duplicate_page';
+import { IntegrationTransport, runCli } from './lib/integration_safety';
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -50,7 +48,7 @@ async function verifyBody(notion: Client, pageId: string, marker: string): Promi
   assert.equal(text.paragraph.rich_text.map(item => item.plain_text).join(''), marker);
 }
 
-async function main(): Promise<void> {
+export async function verifyIntegration(guard?: IntegrationTransport): Promise<void> {
   // Never fall back to production credentials or IDs.
   const key = required('NOTION_TEST_KEY');
   const databaseIds = [1, 2, 3, 4].map(i => required('NOTION_TEST_DB_ID_' + i));
@@ -58,15 +56,8 @@ async function main(): Promise<void> {
   if (normalized.some(id => !/^[0-9a-f]{32}$/.test(id)) || new Set(normalized).size !== 4) {
     throw new Error('Provide four distinct test database UUIDs.');
   }
+  if (!guard || guard.file !== process.env.NOTION_TEST_RUN_FILE) throw new Error('Audited integration run is required. Use yarn test:integration --execute.');
   process.env.NOTION_DATA_SOURCE_MAP = process.env.NOTION_TEST_DATA_SOURCE_MAP || '';
-  // Pace this verification process without retrying failed writes.
-  const nativeFetch = globalThis.fetch;
-  let scheduled: Promise<void> = Promise.resolve();
-  globalThis.fetch = async (input, init) => {
-    scheduled = scheduled.then(() => wait(350));
-    await scheduled;
-    return nativeFetch(input, init);
-  };
   const notion = createNotionClient(key);
   const sources: string[] = [];
   let statusName = '';
@@ -95,7 +86,7 @@ async function main(): Promise<void> {
   const names = new Set(['Retro', 'Body', 'Sleep'].map(suffix => day + ' ' + suffix));
   names.add(day + ' Diary'); names.add(marker);
   const env = { ...process.env, NOTION_KEY: key, ...Object.fromEntries(databaseIds.map((id, i) => ['NOTION_DB_ID_' + (i + 1), id])) };
-  const run = promisify(execFile);
+  const run = (command: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number }) => runCli(guard.file, command, args, options);
   const knownIds = new Set<string>();
   try {
     await run('yarn', ['all:create'], { env, timeout: 120000 });
@@ -139,13 +130,12 @@ async function main(): Promise<void> {
       try { await notion.pages.update({ page_id: id, in_trash: true }); }
       catch (error) { errors.push(error); }
     }
-    globalThis.fetch = nativeFetch;
     if (errors.length) throw new Error('Verification cleanup is incomplete. Inspect the dedicated test databases before rerunning.');
   }
   console.log('実API確認成功: 日次3ページ、照会、階層コピー、status、Diary複製。検証ページをゴミ箱へ移動しました。');
 }
 
-main().catch(error => {
+if (require.main === module) verifyIntegration().catch(error => {
   console.error(error instanceof Error ? error.message : 'Integration verification failed.');
   process.exitCode = 1;
 });

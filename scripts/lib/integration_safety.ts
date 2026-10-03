@@ -1,9 +1,10 @@
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-export const LIMITS = { databases: 4, pages: 6, blocks: 9, requests: 120, cleanupRequests: 30, intervalMs: 1000 } as const;
+export const LIMITS = { databases: 4, pages: 6, blocks: 9, requests: 120, cleanupRequests: 30, intervalMs: 1000, maxRuns: 5 } as const;
 type Resource = { id: string; trashed: boolean };
 export interface RunState {
   id: string; parent: string; startedAt: string; status: 'running' | 'cleanup' | 'complete';
@@ -46,6 +47,7 @@ export function createRun(dir: string, parent: string): string {
   if (!validId(parent)) throw new Error('Test parent must be a page UUID.');
   const previous = readdirSync(dir).filter(name => name !== 'lock.json' && name.endsWith('.json')).map(name => readState(path.join(dir, name)));
   if (previous.some(state => state.status !== 'complete')) throw new Error('An unfinished run exists. Complete cleanup before creating resources.');
+  if (previous.length >= LIMITS.maxRuns) throw new Error('Lifetime run limit reached. Review retained resources before further testing.');
   const now = Date.now();
   if (previous.some(state => now - Date.parse(state.startedAt) < 86400000)) throw new Error('Only one resource-creating run is allowed per 24 hours.');
   const id = randomUUID(); const file = path.join(dir, id + '.json');
@@ -92,6 +94,7 @@ export class IntegrationTransport {
         if (!same(body.parent?.page_id || '', state.parent)) throw new Error('Database parent is not the dedicated test parent.');
         creation = 'databases';
       } else if (method === 'POST' && endpoint === '/v1/pages') {
+        if (body.template || countBlocks(body.children)) throw new Error('Page templates and inline blocks are not permitted in this test.');
         if (!source(body.parent?.data_source_id || '')) throw new Error('Page parent is not an owned test data source.'); creation = 'pages';
       } else if (method === 'PATCH' && /^\/v1\/blocks\/[^/]+\/children$/.test(endpoint) && block(id)) {
         creation = 'blocks'; amount = countBlocks(body.children);
@@ -142,4 +145,22 @@ export class IntegrationTransport {
       throw new Error('Integration request failed; outcome unknown. See the audit log.');
     }
   }
+}
+
+/** Kill the CLI process group before cleanup, including Yarn's Node children. */
+export async function runCli(file: string, command: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number }): Promise<void> {
+  record(file, 'cli_started', { command: args[0] });
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, { env: options.env, detached: true, stdio: 'ignore' });
+    let interrupted = false;
+    const stop = () => { interrupted = true; if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} } };
+    const timer = setTimeout(stop, options.timeout);
+    process.once('SIGINT', stop); process.once('SIGTERM', stop);
+    const finish = () => { clearTimeout(timer); process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); };
+    child.once('error', () => { finish(); record(file, 'cli_failed', { command: args[0], reason: 'spawn' }); reject(new Error('CLI start failed.')); });
+    child.once('close', code => {
+      finish(); record(file, code === 0 && !interrupted ? 'cli_succeeded' : 'cli_failed', { command: args[0], exitCode: code, interrupted });
+      if (code === 0 && !interrupted) resolve(); else reject(new Error('CLI verification failed.'));
+    });
+  });
 }

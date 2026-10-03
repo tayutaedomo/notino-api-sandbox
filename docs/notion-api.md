@@ -38,3 +38,18 @@ Node.js 24では旧 Functions Framework の cloudevents 8 にあるNode.js上限
 テストは node:test、ts-node、Nock 14を使用します。旧SDKで日次コマンドを含む回帰テストを成功させてから新APIへ移行しました。新仕様の失敗テストを先に追加し、成功した段階でコミットします。コミットは Conventional Commits、日本語の短い件名、箇条書きの本文を使用します。
 
 専用DBの実API確認は README の準備手順に従います。実API確認前にmainへ反映せず、モックテストの成功と実APIでの確認結果を区別します。
+
+## 実API検証のリソース管理
+
+`yarn test:integration` の既定動作は通信なしの予定表示です。`--execute` を明示した場合だけ検証用の親ページ配下にDB4個を作成し、既存の検証処理を実行してページとDBを `in_trash: true` にします。現在のAPIでは `initial_data_source.properties` でスキーマを指定し、`status: {}` で標準の選択肢を作成できます。
+
+作成要求と通信の上限は `scripts/lib/integration_safety.ts` に固定しています。CLI子プロセスにも専用preloadで同じ通信制御を適用します。通常処理と後片付けの通信枠を分け、連続実行を24時間に1回、累計5回までに制限します。JSONLの監査ログと状態JSONは送信前・結果取得後にディスクへ同期し、再開時も上限を引き継ぎます。実際のIDは監査のためローカル保存しますが、Gitには保存しません。CLI終了コード・中断も記録し、タイムアウト時はYarnを含む子プロセス群を停止してから後片付けします（macOS/Linuxのプロセスグループを使用）。
+
+429/529のRetry-Afterには従いますが自動再試行はしません。作成の通信失敗や5xxは結果不明として記録し、新規実行を停止します。後片付けでDBの親と実行ID入りの名前が確認できない場合も削除せず止めます。通信枠超過・結果不明・累計上限は人がログとNotionのリソースを確認するまで自動解除しません。上限解除のために履歴を削除しないでください。
+
+Freeワークスペースの累計ブロック枠は削除しても回復しません。通信制限はワークスペース内の他の接続とも共有されるため、専用接続と小さい検証だけで残容量を保証することはできません。利用量を確認してから明示実行します。DBを完全削除する処理は実装しません。
+
+- [DB作成API](https://developers.notion.com/reference/create-database)
+- [データソースのプロパティ](https://developers.notion.com/reference/property-object)
+- [リクエスト制限](https://developers.notion.com/reference/request-limits)
+- [ワークスペースのブロック制限](https://developers.notion.com/reference/workspace-block-limits)
