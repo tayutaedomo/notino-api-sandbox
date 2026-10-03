@@ -1,5 +1,5 @@
 import { Client, isFullPage } from '@notionhq/client';
-import { fetchPreparedBlocks, appendPreparedBlocks } from './notion_blocks';
+import { fetchPreparedBlocks, appendPreparedBlocks, cleanRichText } from './notion_blocks';
 import { createNotionClient, resolveDataSource } from './notion_client';
 import {
   CreatePageResponse,
@@ -8,7 +8,7 @@ import {
   CreatePageParameters,
 } from '@notionhq/client';
 
-type DatabaseFilter = QueryDataSourceParameters['filter'];
+type DataSourceFilter = QueryDataSourceParameters['filter'];
 type CreateProperties = CreatePageParameters['properties'];
 type SourceProperties = PageObjectResponse['properties'];
 
@@ -77,7 +77,7 @@ async function queryPage(
   if (!property || (property.type !== 'title' && property.type !== 'rich_text')) {
     throw new Error('Search property must be title or rich_text.');
   }
-  const filter: DatabaseFilter = property.type === 'title'
+  const filter: DataSourceFilter = property.type === 'title'
     ? { property: searchProperty, title: { contains: searchValue } }
     : { property: searchProperty, rich_text: { contains: searchValue } };
   if (sortDirection !== 'ascending' && sortDirection !== 'descending') throw new Error('Invalid sort direction.');
@@ -89,7 +89,7 @@ async function queryPage(
     sorts: [
       {
         property: sortProperty,
-        direction: sortDirection as 'ascending' | 'descending',
+        direction: sortDirection,
       },
     ],
   });
@@ -129,103 +129,32 @@ async function createPageCopy(
 }
 
 function copyProperties(sourceProperties: SourceProperties): CreateProperties {
-  const copiedProperties: CreateProperties = {};
-
+  const copied: CreateProperties = {};
   for (const [key, property] of Object.entries(sourceProperties)) {
     switch (property.type) {
-      case 'title':
-        copiedProperties[key] = {
-          title: property.title as any,
-        };
-        break;
-      case 'rich_text':
-        copiedProperties[key] = {
-          rich_text: property.rich_text as any,
-        };
-        break;
-      case 'number':
-        copiedProperties[key] = {
-          number: property.number,
-        };
-        break;
-      case 'select':
-        if (property.select) {
-          copiedProperties[key] = {
-            select: {
-              name: property.select.name,
-            },
-          };
-        }
-        break;
-      case 'multi_select':
-        copiedProperties[key] = {
-          multi_select: property.multi_select.map((item) => ({
-            name: item.name,
-          })),
-        };
-        break;
-      case 'date':
-        if (property.date) {
-          copiedProperties[key] = {
-            date: property.date,
-          };
-        }
-        break;
-      case 'checkbox':
-        copiedProperties[key] = {
-          checkbox: property.checkbox,
-        };
-        break;
-      case 'url':
-        if (property.url) {
-          copiedProperties[key] = {
-            url: property.url,
-          };
-        }
-        break;
-      case 'email':
-        if (property.email) {
-          copiedProperties[key] = {
-            email: property.email,
-          };
-        }
-        break;
-      case 'phone_number':
-        if (property.phone_number) {
-          copiedProperties[key] = {
-            phone_number: property.phone_number,
-          };
-        }
-        break;
-      case 'relation':
-        copiedProperties[key] = {
-          relation: property.relation,
-        };
-        break;
-      case 'people':
-        copiedProperties[key] = {
-          people: property.people,
-        };
-        break;
+      case 'title': copied[key] = { title: cleanRichText(property.title) }; break;
+      case 'rich_text': copied[key] = { rich_text: cleanRichText(property.rich_text) }; break;
+      case 'number': copied[key] = { number: property.number }; break;
+      case 'select': copied[key] = { select: property.select ? { name: property.select.name } : null }; break;
+      case 'status': copied[key] = { status: property.status ? { name: property.status.name } : null }; break;
+      case 'multi_select': copied[key] = { multi_select: property.multi_select.map(item => ({ name: item.name })) }; break;
+      case 'date': copied[key] = { date: property.date }; break;
+      case 'checkbox': copied[key] = { checkbox: property.checkbox }; break;
+      case 'url': copied[key] = { url: property.url }; break;
+      case 'email': copied[key] = { email: property.email }; break;
+      case 'phone_number': copied[key] = { phone_number: property.phone_number }; break;
+      case 'relation': copied[key] = { relation: property.relation.map(item => ({ id: item.id })) }; break;
+      case 'people': copied[key] = { people: property.people.map(item => ({ id: item.id })) }; break;
       case 'files':
-        copiedProperties[key] = {
-          files: property.files,
-        };
+        copied[key] = { files: property.files.map(item => item.type === 'external'
+          ? { name: item.name, type: 'external', external: { url: item.external.url } }
+          : { name: item.name, type: 'file', file: { url: item.file.url } }) };
         break;
-      case 'formula':
-      case 'rollup':
-      case 'created_time':
-      case 'created_by':
-      case 'last_edited_time':
-      case 'last_edited_by':
+      case 'formula': case 'rollup': case 'created_time': case 'created_by':
+      case 'last_edited_time': case 'last_edited_by': case 'unique_id': case 'button': case 'verification':
         break;
-      default:
-        console.warn(
-          `Unhandled property type: ${(property as { type: string }).type}`
-        );
-        break;
+      default: console.warn('Unhandled property type:', (property as { type: string }).type);
     }
   }
-
-  return copiedProperties;
+  return copied;
 }
