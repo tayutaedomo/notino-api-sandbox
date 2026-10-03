@@ -100,7 +100,7 @@ for (const mode of ['copy', 'diary']) {
     api().post('/v1/pages').reply(200, page('new'));
     api()
       .patch('/v1/blocks/new/children', (body) => body.children.length === 100)
-      .reply(200, list(blocks.slice(0, 100).map((b, i) => ({ id: 'new-' + i }))));
+      .reply(200, list(blocks.slice(0, 100).map((_b, i) => ({ id: 'new-' + i }))));
     api()
       .patch('/v1/blocks/new/children', (body) => body.children.length === 1)
       .reply(200, list([{ id: 'new-100' }]));

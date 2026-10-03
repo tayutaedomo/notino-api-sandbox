@@ -13,6 +13,7 @@
 ## 実行コマンド
 
 ```sh
+yarn check:ci
 yarn lint
 yarn format:check
 yarn test
@@ -22,8 +23,9 @@ yarn test:http
 
 | コマンド | 確認内容 |
 |---|---|
-| `lint` | ESLintで実装・テスト・設定の問題を検出（警告も失敗扱い） |
-| `format:check` | Prettierで実装・テスト・JSON・CI設定の整形を確認 |
+| `check:ci` | Biomeでlint・整形・import整理をまとめて確認（警告も失敗扱い） |
+| `lint` | Biomeで実装・テストの問題を検出（警告も失敗扱い） |
+| `format:check` | Biomeで実装・テスト・JSON、PrettierでCIのYAMLの整形を確認 |
 | `test` | Notion通信をモックし、日次コマンド・CLI・コピー・失敗ケースを確認 |
 | `typecheck` | 共通処理・CLI・テストの型チェック |
 | `test:http` | GCFをビルドし、Functions Frameworkをローカル起動してHTTP契約を確認 |
@@ -31,7 +33,12 @@ yarn test:http
 - Notionへの接続やリソース作成は行いません。
 - HTTPテストはローカル通信のみ許可し、Notion通信をモックします。
 - 整形が必要な場合は `yarn format` を実行します。CIではチェックのみ行います。
-- ESLintはJavaScript・TypeScriptの推奨ルールを使用します。API境界など既存の `any` は許容し、型の検証は `typecheck` でも行います。
+- Biome `2.5.15` の推奨プリセットを使用します。型チェックは引き続き `tsc` で行います。
+- 例外は `biome.json` の対象ファイルに限定しています。
+  - 実API検証の通信ガード：動的なNotionのJSONを扱うため、明示的な `any` を許容。
+  - ブロック取得・実API検証・DB登録：直前に検証している非null指定を許容。
+- YAMLはBiomeが未対応のため、PrettierをYAML専用で残しています。
+- Biomeの設定・[CLI](https://biomejs.dev/reference/cli/)と[対応言語](https://biomejs.dev/internals/language-support/)は公式文書を参照してください。
 - 環境変数ファイル・実API検証ログ・生成物はlint・整形の対象外です。
 - テスト基盤はNode.js標準 `node:test`、`ts-node`、Nock 14です。
 
@@ -46,7 +53,7 @@ yarn test:http
 
 | ジョブ | 実行内容 |
 |---|---|
-| 静的チェック | `yarn lint` → `yarn format:check` → `yarn typecheck` |
+| 静的チェック | `yarn check:ci` → YAMLの整形チェック → `yarn typecheck` |
 | CLI・共通処理 | `yarn test` |
 | GCF | `yarn test:http`（ビルドとローカルHTTPテスト） |
 

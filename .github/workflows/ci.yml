@@ -32,11 +32,11 @@ jobs:
       - name: 依存関係をインストール
         run: yarn install --frozen-lockfile --non-interactive
 
-      - name: Lint
-        run: yarn lint
+      - name: Biomeの静的チェック
+        run: yarn check:ci
 
-      - name: 整形チェック
-        run: yarn format:check
+      - name: YAMLの整形チェック
+        run: yarn prettier --check ".github/workflows/*.{yml,yaml}"
 
       - name: 型チェック
         run: yarn typecheck

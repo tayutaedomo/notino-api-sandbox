@@ -1,10 +1,10 @@
 import {
-  Client,
+  type AppendBlockChildrenResponse,
+  type BlockObjectRequest,
+  type BlockObjectResponse,
+  type Client,
   isFullBlock,
-  BlockObjectResponse,
-  BlockObjectRequest,
-  AppendBlockChildrenResponse,
-  RichTextItemResponse,
+  type RichTextItemResponse,
 } from '@notionhq/client';
 
 type RichTextRequest = Extract<

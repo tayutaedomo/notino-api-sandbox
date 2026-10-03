@@ -36,8 +36,8 @@ async function scenario(options = {}) {
   /** @type {Array<{method:string,endpoint:string}>} */ const calls = [];
   let blockNumber = 4000;
   let pageNumber = 3000;
-  /** @param {string} parent @param {any} request @returns {any} */
-  function addBlock(parent, request) {
+  /** @param {string} _parent @param {any} request @returns {any} */
+  function addBlock(_parent, request) {
     const type = request.type || Object.keys(request).find((key) => !['object'].includes(key));
     const body = { ...request[type] };
     const children = body.children || [];
@@ -169,7 +169,7 @@ async function scenario(options = {}) {
     safety,
     'runCli',
     async (
-      /** @type {string} */ file,
+      /** @type {string} */ _file,
       /** @type {string} */ command,
       /** @type {string[]} */ args,
       /** @type {{env:NodeJS.ProcessEnv}} */ settings,

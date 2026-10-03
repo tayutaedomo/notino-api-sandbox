@@ -1,12 +1,13 @@
-import { Client, isFullPage } from '@notionhq/client';
-import { fetchPreparedBlocks, appendPreparedBlocks, cleanRichText } from './notion_blocks';
-import { createNotionClient, resolveDataSource } from './notion_client';
 import {
-  CreatePageResponse,
-  PageObjectResponse,
-  QueryDataSourceParameters,
-  CreatePageParameters,
+  type Client,
+  type CreatePageParameters,
+  type CreatePageResponse,
+  isFullPage,
+  type PageObjectResponse,
+  type QueryDataSourceParameters,
 } from '@notionhq/client';
+import { appendPreparedBlocks, cleanRichText, fetchPreparedBlocks } from './notion_blocks';
+import { createNotionClient, resolveDataSource } from './notion_client';
 
 type DataSourceFilter = QueryDataSourceParameters['filter'];
 type CreateProperties = CreatePageParameters['properties'];

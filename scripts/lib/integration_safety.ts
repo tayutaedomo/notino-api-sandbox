@@ -1,18 +1,18 @@
+import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
   closeSync,
   existsSync,
   fsyncSync,
   mkdirSync,
   openSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   renameSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export const LIMITS = {
@@ -247,16 +247,18 @@ export class IntegrationTransport {
         if (state.databasePolicy === 'retain' && endpoint.includes('/databases/'))
           throw new Error('Reusable test databases cannot be trashed.');
         // Only resources recorded as created by this run may be moved to trash.
-      } else if (!(
-        (method === 'GET' &&
-          (endpoint === '/v1/users' ||
-            (/^\/v1\/databases\/[^/]+$/.test(endpoint) && owns('databases', id)) ||
-            (/^\/v1\/data_sources\/[^/]+$/.test(endpoint) && source(id)) ||
-            (/^\/v1\/pages\/[^/]+$/.test(endpoint) &&
-              (owns('pages', id) || same(id, state.parent))) ||
-            (/^\/v1\/blocks\/[^/]+\/children$/.test(endpoint) && block(id)))) ||
-        (method === 'POST' && /^\/v1\/data_sources\/[^/]+\/query$/.test(endpoint) && source(id))
-      ))
+      } else if (
+        !(
+          (method === 'GET' &&
+            (endpoint === '/v1/users' ||
+              (/^\/v1\/databases\/[^/]+$/.test(endpoint) && owns('databases', id)) ||
+              (/^\/v1\/data_sources\/[^/]+$/.test(endpoint) && source(id)) ||
+              (/^\/v1\/pages\/[^/]+$/.test(endpoint) &&
+                (owns('pages', id) || same(id, state.parent))) ||
+              (/^\/v1\/blocks\/[^/]+\/children$/.test(endpoint) && block(id)))) ||
+          (method === 'POST' && /^\/v1\/data_sources\/[^/]+\/query$/.test(endpoint) && source(id))
+        )
+      )
         throw new Error('Endpoint or resource is not owned by this test run.');
       if (creation && state.counts[creation] + amount > LIMITS[creation])
         throw new Error(

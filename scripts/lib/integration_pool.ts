@@ -1,7 +1,7 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { Client, CreateDatabaseParameters, GetDatabaseResponse } from '@notionhq/client';
-import { readState, saveState, record, writeJson } from './integration_safety';
+import type { Client, CreateDatabaseParameters, GetDatabaseResponse } from '@notionhq/client';
+import { readState, record, saveState, writeJson } from './integration_safety';
 
 const roles = ['Retro', 'Body', 'Sleep', 'Diary'] as const;
 type Role = (typeof roles)[number];

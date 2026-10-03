@@ -21,7 +21,7 @@ async function copy(properties) {
   let copied;
   api()
     .post('/v1/pages')
-    .reply((uri, body) => {
+    .reply((_uri, body) => {
       copied = /** @type {{properties: Record<string, any>}} */ (body).properties;
       return [200, page('new')];
     });

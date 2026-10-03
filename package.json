@@ -40,9 +40,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "test:http": "yarn gcf:build && node --require ts-node/register --test tests/http/*.test.cjs",
     "test:integration": "node --env-file-if-exists=.env.test.local --require ts-node/register scripts/integration.ts",
-    "lint": "eslint . --max-warnings=0",
-    "format:check": "prettier --check \"{functions,scripts,tests}/**/*.{ts,cjs}\" \"*.{json,mjs}\" \".github/workflows/*.{yml,yaml}\"",
-    "format": "prettier --write \"{functions,scripts,tests}/**/*.{ts,cjs}\" \"*.{json,mjs}\" \".github/workflows/*.{yml,yaml}\""
+    "lint": "biome lint . --error-on-warnings --diagnostic-level=warn",
+    "format:check": "biome format . && prettier --check \".github/workflows/*.{yml,yaml}\"",
+    "format": "biome format --write . && prettier --write \".github/workflows/*.{yml,yaml}\"",
+    "check:ci": "biome ci . --error-on-warnings --diagnostic-level=warn"
   },
   "dependencies": {
     "@notionhq/client": "5.27.0",
@@ -51,14 +52,11 @@
     "typescript": "~5.9.3"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
+    "@biomejs/biome": "2.5.15",
     "@google-cloud/functions-framework": "5.0.5",
     "@types/express": "^4.17.21",
     "@types/node": "^24",
-    "eslint": "10.12.0",
-    "globals": "17.13.0",
     "nock": "^14",
-    "prettier": "3.9.9",
-    "typescript-eslint": "8.71.0"
+    "prettier": "3.9.9"
   }
 }

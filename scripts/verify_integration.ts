@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { isFullPage, isFullBlock, PageObjectResponse, Client } from '@notionhq/client';
+import { type Client, isFullBlock, isFullPage, type PageObjectResponse } from '@notionhq/client';
 import { createNotionClient } from '../functions/lib/notion_client';
 import { copyPage } from '../functions/lib/notion_copy_page';
-import { IntegrationTransport, runCli, readState } from './lib/integration_safety';
-import { PreparedPool } from './lib/integration_pool';
+import type { PreparedPool } from './lib/integration_pool';
+import { type IntegrationTransport, readState, runCli } from './lib/integration_safety';
 
 function required(name: string): string {
   const value = process.env[name]?.trim();

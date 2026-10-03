@@ -1,7 +1,6 @@
-import { Client, isFullPage } from '@notionhq/client';
-import { fetchPreparedBlocks, appendPreparedBlocks } from './notion_blocks';
+import { type Client, type CreatePageResponse, isFullPage } from '@notionhq/client';
+import { appendPreparedBlocks, fetchPreparedBlocks } from './notion_blocks';
 import { resolveDataSource } from './notion_client';
-import { CreatePageResponse } from '@notionhq/client';
 
 export async function duplicatePage(notion: Client, databaseId: string) {
   const dataSourceId = await resolveDataSource(notion, databaseId);

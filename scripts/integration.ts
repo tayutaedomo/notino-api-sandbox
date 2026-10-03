@@ -1,7 +1,8 @@
-import path from 'node:path';
 import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { isFullPage } from '@notionhq/client';
 import { createNotionClient } from '../functions/lib/notion_client';
+import { type PreparedPool, preparePool, synchronizePool } from './lib/integration_pool';
 import {
   acquireLock,
   completeRun,
@@ -12,7 +13,6 @@ import {
   record,
   validId,
 } from './lib/integration_safety';
-import { preparePool, synchronizePool, PreparedPool } from './lib/integration_pool';
 import { verifyIntegration } from './verify_integration';
 
 async function cleanupLegacyDatabases(

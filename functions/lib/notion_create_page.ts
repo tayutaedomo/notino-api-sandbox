@@ -1,4 +1,4 @@
-import { Client } from '@notionhq/client';
+import type { Client } from '@notionhq/client';
 import { resolveDataSource } from './notion_client';
 
 export async function createPage(notion: Client, databaseId: string, titleSuffix: string) {

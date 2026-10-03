@@ -14,7 +14,7 @@ scope.get(/\/v1\/databases\/.+/).reply((uri) => [
     data_sources: [{ id: 'ds-' + uri.split('/').pop() }],
   },
 ]);
-scope.post('/v1/pages').reply(function (uri, body) {
+scope.post('/v1/pages').reply((_uri, body) => {
   const data =
     /** @type {{parent: {database_id?: string, data_source_id?: string}, properties: Record<string, any>}} */ (
       body
