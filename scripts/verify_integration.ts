@@ -82,47 +82,28 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
   const date = today.replace(/\//g, '-');
   const day = today.replace(/\//g, '').slice(2);
   const marker = 'Integration ' + randomUUID();
-  const names = new Set(['Retro', 'Body', 'Sleep'].map(suffix => day + ' ' + suffix));
-  names.add(marker);
   const env = { ...process.env, NOTION_KEY: key, ...Object.fromEntries(databaseIds.map((id, i) => ['NOTION_DB_ID_' + (i + 1), id])) };
   const run = (command: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number }) => runCli(guard.file, command, args, options);
-  const knownIds = new Set<string>();
-  try {
-    await run('yarn', ['all:create'], { env, timeout: 120000 });
-    assert.equal((await rows(notion, sources[3])).length, 0);
-    for (let i = 0; i < 3; i++) {
-      const pages = await rows(notion, sources[i]); assert.equal(pages.length, 1);
-      const page = await notion.pages.retrieve({ page_id: pages[0].id }); assert.ok(isFullPage(page));
-      assert.equal(title(page), day + ' ' + ['Retro', 'Body', 'Sleep'][i]);
-      const value = page.properties.Date; assert.ok(value.type === 'date'); assert.equal(value.date?.start, date);
-      assert.ok(page.parent.type === 'data_source_id'); assert.equal(page.parent.data_source_id, sources[i]);
-      knownIds.add(page.id);
-    }
-    const source = await notion.pages.create({ parent: { type: 'data_source_id', data_source_id: sources[3] }, properties: {
-      Name: { title: [{ text: { content: marker } }] }, Month: { number: 200001 }, Tags: { multi_select: [{ name: 'diary' }] }, Status: { status: { name: statusName } },
-    } });
-    knownIds.add(source.id);
-    const root = await notion.blocks.children.append({ block_id: source.id, children: [{ toggle: { rich_text: [{ text: { content: marker } }] } }] });
-    await notion.blocks.children.append({ block_id: root.results[0].id, children: [{ to_do: { rich_text: [{ text: { content: 'Test TODO' } }], checked: true, children: [{ paragraph: { rich_text: [{ text: { content: marker } }] } }] } }] });
-    const copied = await copyPage(key, { databaseId: databaseIds[3], searchProperty: 'Name', searchValue: marker, sortProperty: 'Created time' });
-    knownIds.add(copied.newPage.id); assert.equal(copied.copiedBlocks, 1);
-    const copiedPage = await notion.pages.retrieve({ page_id: copied.newPage.id }); assert.ok(isFullPage(copiedPage));
-    const status = copiedPage.properties.Status; assert.ok(status.type === 'status'); assert.equal(status.status?.name, statusName);
-    await verifyBody(notion, copied.newPage.id, marker);
-  } finally {
-    const errors: unknown[] = [];
-    for (const id of sources) {
-      try {
-        for (const page of await rows(notion, id)) if (names.has(title(page))) knownIds.add(page.id);
-      } catch (error) { errors.push(error); }
-    }
-    for (const id of knownIds) {
-      try { await notion.pages.update({ page_id: id, in_trash: true }); }
-      catch (error) { errors.push(error); }
-    }
-    if (errors.length) throw new Error('Verification cleanup is incomplete. Inspect the dedicated test databases before rerunning.');
+  await run('yarn', ['all:create'], { env, timeout: 120000 });
+  assert.equal((await rows(notion, sources[3])).length, 0);
+  for (let i = 0; i < 3; i++) {
+    const pages = await rows(notion, sources[i]); assert.equal(pages.length, 1);
+    const page = await notion.pages.retrieve({ page_id: pages[0].id }); assert.ok(isFullPage(page));
+    assert.equal(title(page), day + ' ' + ['Retro', 'Body', 'Sleep'][i]);
+    const value = page.properties.Date; assert.ok(value.type === 'date'); assert.equal(value.date?.start, date);
+    assert.ok(page.parent.type === 'data_source_id'); assert.equal(page.parent.data_source_id, sources[i]);
   }
-  console.log('実API確認成功: 日次3ページ、階層コピー、TODO、status。検証ページをゴミ箱へ移動しました。');
+  const source = await notion.pages.create({ parent: { type: 'data_source_id', data_source_id: sources[3] }, properties: {
+    Name: { title: [{ text: { content: marker } }] }, Month: { number: 200001 }, Tags: { multi_select: [{ name: 'diary' }] }, Status: { status: { name: statusName } },
+  } });
+  const root = await notion.blocks.children.append({ block_id: source.id, children: [{ toggle: { rich_text: [{ text: { content: marker } }] } }] });
+  await notion.blocks.children.append({ block_id: root.results[0].id, children: [{ to_do: { rich_text: [{ text: { content: 'Test TODO' } }], checked: true, children: [{ paragraph: { rich_text: [{ text: { content: marker } }] } }] } }] });
+  const copied = await copyPage(key, { databaseId: databaseIds[3], searchProperty: 'Name', searchValue: marker, sortProperty: 'Created time' });
+  assert.equal(copied.copiedBlocks, 1);
+  const copiedPage = await notion.pages.retrieve({ page_id: copied.newPage.id }); assert.ok(isFullPage(copiedPage));
+  const status = copiedPage.properties.Status; assert.ok(status.type === 'status'); assert.equal(status.status?.name, statusName);
+  await verifyBody(notion, copied.newPage.id, marker);
+  console.log('実API確認成功: 日次3ページ、階層コピー、TODO、status。後片付けは実行管理側で行います。');
 }
 
 if (require.main === module) verifyIntegration().catch(error => {

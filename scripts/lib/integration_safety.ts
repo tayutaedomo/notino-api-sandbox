@@ -7,6 +7,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 export const LIMITS = { databases: 4, pages: 5, blocks: 6, requests: 80, cleanupRequests: 30, intervalMs: 1000, maxRuns: 5 } as const;
 type Resource = { id: string; trashed: boolean };
 export interface RunState {
+  databasePolicy?: 'retain';
   id: string; parent: string; startedAt: string; status: 'running' | 'cleanup' | 'complete';
   resources: { databases: Resource[]; pages: Resource[]; blocks: string[]; sources: string[] };
   counts: { databases: number; pages: number; blocks: number; requests: number; cleanupRequests: number };
@@ -21,10 +22,12 @@ function durable(file: string, value: string, append = false): void {
   const fd = openSync(file, append ? 'a' : 'w', 0o600);
   try { writeFileSync(fd, value); fsyncSync(fd); } finally { closeSync(fd); }
 }
-function save(file: string, state: RunState): void {
-  const temporary = file + '.tmp'; durable(temporary, JSON.stringify(state, null, 2) + '\n'); renameSync(temporary, file);
+export function writeJson(file: string, value: unknown): void {
+  const temporary = file + '.tmp'; durable(temporary, JSON.stringify(value, null, 2) + '\n'); renameSync(temporary, file);
   const fd = openSync(path.dirname(file), 'r'); try { fsyncSync(fd); } finally { closeSync(fd); }
 }
+export const saveState = (file: string, state: RunState): void => writeJson(file, state);
+const save = saveState;
 export function record(file: string, event: string, detail: Record<string, unknown> = {}): void {
   const state = readState(file);
   durable(file.replace(/\.json$/, '.jsonl'), JSON.stringify({ time: new Date().toISOString(), runId: state.id, event, ...detail }) + '\n', true);
@@ -45,7 +48,7 @@ export function acquireLock(dir: string, recover = false): () => void {
 export function createRun(dir: string, parent: string): string {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   if (!validId(parent)) throw new Error('Test parent must be a page UUID.');
-  const previous = readdirSync(dir).filter(name => name !== 'lock.json' && name.endsWith('.json')).map(name => readState(path.join(dir, name)));
+  const previous = readdirSync(dir).filter(name => name !== 'lock.json' && name !== 'pool.json' && name.endsWith('.json')).map(name => readState(path.join(dir, name)));
   if (previous.some(state => state.status !== 'complete')) throw new Error('An unfinished run exists. Complete cleanup before creating resources.');
   if (previous.length >= LIMITS.maxRuns) throw new Error('Lifetime run limit reached. Review retained resources before further testing.');
   const now = Date.now();
@@ -58,7 +61,7 @@ export function createRun(dir: string, parent: string): string {
 }
 export function completeRun(file: string): void {
   const state = readState(file);
-  if (state.resources.databases.some(item => !item.trashed) || state.pending.length) throw new Error('Cleanup incomplete or request outcome unknown. Inspect the audit log.');
+  if ((state.databasePolicy === 'retain' ? state.resources.pages : state.resources.databases).some(item => !item.trashed) || state.pending.length) throw new Error('Cleanup incomplete or request outcome unknown. Inspect the audit log.');
   state.status = 'complete'; save(file, state); record(file, 'run_complete', { counts: state.counts });
 }
 function countBlocks(children: unknown): number {
@@ -92,6 +95,7 @@ export class IntegrationTransport {
       if (cleanup && method !== 'GET' && !(method === 'PATCH' && Object.keys(body).length === 1 && body.in_trash === true)) throw new Error('Only trash operations are allowed during cleanup.');
       if (method === 'POST' && endpoint === '/v1/databases') {
         if (!same(body.parent?.page_id || '', state.parent)) throw new Error('Database parent is not the dedicated test parent.');
+        if (state.databasePolicy === 'retain' && state.resources.databases.length >= 4) throw new Error('Database pool creation limit exceeded.');
         creation = 'databases';
       } else if (method === 'POST' && endpoint === '/v1/pages') {
         if (body.template || countBlocks(body.children)) throw new Error('Page templates and inline blocks are not permitted in this test.');
@@ -99,6 +103,7 @@ export class IntegrationTransport {
       } else if (method === 'PATCH' && /^\/v1\/blocks\/[^/]+\/children$/.test(endpoint) && block(id)) {
         creation = 'blocks'; amount = countBlocks(body.children);
       } else if (method === 'PATCH' && /^\/v1\/(databases|pages)\/[^/]+$/.test(endpoint) && body.in_trash === true && Object.keys(body).length === 1 && owns(endpoint.split('/')[2] as 'databases' | 'pages', id)) {
+        if (state.databasePolicy === 'retain' && endpoint.includes('/databases/')) throw new Error('Reusable test databases cannot be trashed.');
         // Only resources recorded as created by this run may be moved to trash.
       } else if (!(method === 'GET' && (endpoint === '/v1/users' || /^\/v1\/databases\/[^/]+$/.test(endpoint) && owns('databases', id) || /^\/v1\/data_sources\/[^/]+$/.test(endpoint) && source(id) || /^\/v1\/pages\/[^/]+$/.test(endpoint) && (owns('pages', id) || same(id, state.parent)) || /^\/v1\/blocks\/[^/]+\/children$/.test(endpoint) && block(id)) || method === 'POST' && /^\/v1\/data_sources\/[^/]+\/query$/.test(endpoint) && source(id))) throw new Error('Endpoint or resource is not owned by this test run.');
       if (creation && state.counts[creation] + amount > LIMITS[creation]) throw new Error(({ databases: 'Database', pages: 'Page', blocks: 'Block' })[creation] + ' creation limit exceeded.');

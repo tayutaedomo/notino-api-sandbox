@@ -1,11 +1,12 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import { CreateDatabaseParameters, isFullPage } from '@notionhq/client';
+import { isFullPage } from '@notionhq/client';
 import { createNotionClient } from '../functions/lib/notion_client';
 import { acquireLock, completeRun, createRun, IntegrationTransport, LIMITS, readState, record, validId } from './lib/integration_safety';
+import { preparePool, synchronizePool } from './lib/integration_pool';
 import { verifyIntegration } from './verify_integration';
 
-export async function cleanupDatabases(file: string, guard: IntegrationTransport, key: string): Promise<void> {
+async function cleanupLegacyDatabases(file: string, guard: IntegrationTransport, key: string): Promise<void> {
   guard.cleanup(); const notion = createNotionClient(key, { fetch: guard.fetch });
   let failed = false;
   for (const resource of readState(file).resources.databases.slice().reverse()) {
@@ -22,19 +23,32 @@ export async function cleanupDatabases(file: string, guard: IntegrationTransport
   completeRun(file);
 }
 
+export async function cleanupRun(file: string, guard: IntegrationTransport, key: string): Promise<void> {
+  if (readState(file).databasePolicy !== 'retain') return cleanupLegacyDatabases(file, guard, key);
+  guard.cleanup(); const notion = createNotionClient(key, { fetch: guard.fetch }); let failed = false;
+  try { await synchronizePool(file, notion); } catch { failed = true; record(file, 'registry_recovery_failed'); }
+  for (const resource of readState(file).resources.pages.slice().reverse()) {
+    if (resource.trashed) continue;
+    try {
+      const page = await notion.pages.retrieve({ page_id: resource.id });
+      const sources = readState(file).resources.sources;
+      if (!isFullPage(page) || page.parent.type !== 'data_source_id') throw new Error('Test page ownership changed.');
+      const sourceId = page.parent.data_source_id;
+      if (!sources.some(id => id.replace(/-/g, '').toLowerCase() === sourceId.replace(/-/g, '').toLowerCase())) throw new Error('Test page ownership changed.');
+      await notion.pages.update({ page_id: resource.id, in_trash: true });
+    } catch { failed = true; record(file, 'cleanup_failed', { pageId: resource.id }); }
+  }
+  if (failed) throw new Error('Page cleanup incomplete. Resume using the logged run ID.');
+  completeRun(file);
+}
+
 export async function provisionAndVerify(file: string, guard: IntegrationTransport, key: string, verify: (ids: string[]) => Promise<void>): Promise<void> {
-  const notion = createNotionClient(key, { fetch: guard.fetch }); const state = readState(file); const ids: string[] = [];
+  const notion = createNotionClient(key, { fetch: guard.fetch });
   try {
-    for (const [index, name] of ['Retro', 'Body', 'Sleep', 'Diary'].entries()) {
-      const properties: NonNullable<CreateDatabaseParameters['initial_data_source']>['properties'] = index < 3
-        ? { Name: { title: {} }, Date: { date: {} }, 'Created time': { created_time: {} } }
-        : { Name: { title: {} }, Month: { number: {} }, Tags: { multi_select: { options: [{ name: 'diary' }] } }, Status: { status: {} }, 'Created time': { created_time: {} } };
-      const database = await notion.databases.create({ parent: { type: 'page_id', page_id: state.parent }, title: [{ text: { content: 'Notion API Test ' + state.id + ' ' + name } }], initial_data_source: { properties } });
-      ids.push(database.id);
-    }
+    const ids = await preparePool(file, notion);
     record(file, 'verification_started'); await verify(ids); record(file, 'verification_succeeded');
   } catch { record(file, 'provision_failed'); throw new Error('Preparation or verification failed. See the audit log.'); }
-  finally { await cleanupDatabases(file, guard, key); }
+  finally { await cleanupRun(file, guard, key); }
 }
 
 async function main(): Promise<void> {
@@ -47,7 +61,7 @@ async function main(): Promise<void> {
   }
   if (recover && !cleanupId) throw new Error('--recover-lock is only allowed with --cleanup.');
   if (!execute) {
-    console.log(cleanupId ? '予定: 実行ID ' + cleanupId + ' の記録済みDBだけをゴミ箱へ移動。' : '予定: 検証DB 4個を作成、ページ5個・本文6ブロック以内で実API検証、作成DBをゴミ箱へ移動。');
+    console.log(cleanupId ? '予定: 実行ID ' + cleanupId + ' の記録済み検証ページだけをゴミ箱へ移動。DBは維持。' : '予定: 初回だけ検証DB 4個を作成し、以後は再利用。ページ5個・本文6ブロック以内で検証し、検証ページだけをゴミ箱へ移動。');
     console.log('累計5回まで。通信上限: 通常' + LIMITS.requests + '件、後片付け' + LIMITS.cleanupRequests + '件、間隔1秒、24時間に1回。実API操作には --execute を指定してください。'); return;
   }
   const key = process.env.NOTION_TEST_KEY?.trim(); if (!key) throw new Error('NOTION_TEST_KEY is required.');
@@ -63,7 +77,7 @@ async function main(): Promise<void> {
     } else file = createRun(dir, parent!);
     console.log('実行ID: ' + readState(file).id + '\n操作ログ: ' + file.replace(/\.json$/, '.jsonl'));
     const guard = new IntegrationTransport(file);
-    if (cleanupId) await cleanupDatabases(file, guard, key);
+    if (cleanupId) await cleanupRun(file, guard, key);
     else {
       const notion = createNotionClient(key, { fetch: guard.fetch });
       const page = await notion.pages.retrieve({ page_id: parent! });
@@ -83,7 +97,7 @@ async function main(): Promise<void> {
         }
       });
     }
-    console.log('検証用DBの後片付けが完了しました。');
+    console.log('検証ページの後片付けが完了しました。検証用DBは再利用のため維持します。');
   } catch {
     if (file) {
       record(file, 'run_failed');
