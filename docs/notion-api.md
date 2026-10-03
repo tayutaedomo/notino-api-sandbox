@@ -53,3 +53,7 @@ Freeワークスペースの累計ブロック枠は削除しても回復しま�
 - [データソースのプロパティ](https://developers.notion.com/reference/property-object)
 - [リクエスト制限](https://developers.notion.com/reference/request-limits)
 - [ワークスペースのブロック制限](https://developers.notion.com/reference/workspace-block-limits)
+
+## モックを中心にする検証方針
+
+通常の開発・修正の確認はモックの単体テスト・CLI子プロセステスト・ローカルHTTPテストと型チェックで行います。実API検証は移行の最後の仕上げ、またはモックでは判断できないサーバーの受理条件や実レスポンスの確認時だけ、明示実行します。実API側で認証・各CLIの照会・Diary複製を重複確認せず、all:createと階層・TODO・statusコピーの保存結果に絞ります。作成上限をページ5個・本文6ブロック、通常通信80件に縮小しました。実APIの繰り返し実行でモックの不足を補わず、不足する仕様は先にモックのテストへ追加します。

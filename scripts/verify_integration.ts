@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { isFullPage, isFullBlock, PageObjectResponse, Client } from '@notionhq/client';
 import { createNotionClient, resolveDataSource } from '../functions/lib/notion_client';
 import { copyPage } from '../functions/lib/notion_copy_page';
-import { duplicatePage } from '../functions/lib/notion_duplicate_page';
 import { IntegrationTransport, runCli } from './lib/integration_safety';
 
 function required(name: string): string {
@@ -84,7 +83,7 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
   const day = today.replace(/\//g, '').slice(2);
   const marker = 'Integration ' + randomUUID();
   const names = new Set(['Retro', 'Body', 'Sleep'].map(suffix => day + ' ' + suffix));
-  names.add(day + ' Diary'); names.add(marker);
+  names.add(marker);
   const env = { ...process.env, NOTION_KEY: key, ...Object.fromEntries(databaseIds.map((id, i) => ['NOTION_DB_ID_' + (i + 1), id])) };
   const run = (command: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number }) => runCli(guard.file, command, args, options);
   const knownIds = new Set<string>();
@@ -99,7 +98,6 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
       assert.ok(page.parent.type === 'data_source_id'); assert.equal(page.parent.data_source_id, sources[i]);
       knownIds.add(page.id);
     }
-    for (const command of ['auth', 'retro:query', 'body:query', 'sleep:query']) await run('yarn', [command], { env, timeout: 30000 });
     const source = await notion.pages.create({ parent: { type: 'data_source_id', data_source_id: sources[3] }, properties: {
       Name: { title: [{ text: { content: marker } }] }, Month: { number: 200001 }, Tags: { multi_select: [{ name: 'diary' }] }, Status: { status: { name: statusName } },
     } });
@@ -111,14 +109,6 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
     const copiedPage = await notion.pages.retrieve({ page_id: copied.newPage.id }); assert.ok(isFullPage(copiedPage));
     const status = copiedPage.properties.Status; assert.ok(status.type === 'status'); assert.equal(status.status?.name, statusName);
     await verifyBody(notion, copied.newPage.id, marker);
-    const diary = await duplicatePage(notion, databaseIds[3]); knownIds.add(diary.newPage.id);
-    const diaryPage = await notion.pages.retrieve({ page_id: diary.newPage.id }); assert.ok(isFullPage(diaryPage));
-    assert.equal(title(diaryPage), day + ' Diary');
-    assert.ok(diaryPage.icon?.type === 'emoji'); assert.equal(diaryPage.icon.emoji, '😃');
-    assert.ok(diaryPage.properties.Month.type === 'number'); assert.equal(diaryPage.properties.Month.number, Number(today.replace(/\//g, '').slice(0, 6)));
-    assert.ok(diaryPage.properties.Tags.type === 'multi_select'); assert.ok(diaryPage.properties.Tags.multi_select.some(tag => tag.name === 'diary'));
-    await verifyBody(notion, diary.newPage.id, marker);
-    for (const command of ['diary:query', 'diary:page', 'diary:blocks']) await run('yarn', [command], { env: { ...env, NOTION_PAGE_ID: source.id }, timeout: 30000 });
   } finally {
     const errors: unknown[] = [];
     for (const id of sources) {
@@ -132,7 +122,7 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
     }
     if (errors.length) throw new Error('Verification cleanup is incomplete. Inspect the dedicated test databases before rerunning.');
   }
-  console.log('実API確認成功: 日次3ページ、照会、階層コピー、status、Diary複製。検証ページをゴミ箱へ移動しました。');
+  console.log('実API確認成功: 日次3ページ、階層コピー、TODO、status。検証ページをゴミ箱へ移動しました。');
 }
 
 if (require.main === module) verifyIntegration().catch(error => {

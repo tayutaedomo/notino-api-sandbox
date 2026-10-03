@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   }
   if (recover && !cleanupId) throw new Error('--recover-lock is only allowed with --cleanup.');
   if (!execute) {
-    console.log(cleanupId ? '予定: 実行ID ' + cleanupId + ' の記録済みDBだけをゴミ箱へ移動。' : '予定: 検証DB 4個を作成、ページ6個・本文9ブロック以内で実API検証、作成DBをゴミ箱へ移動。');
+    console.log(cleanupId ? '予定: 実行ID ' + cleanupId + ' の記録済みDBだけをゴミ箱へ移動。' : '予定: 検証DB 4個を作成、ページ5個・本文6ブロック以内で実API検証、作成DBをゴミ箱へ移動。');
     console.log('累計5回まで。通信上限: 通常' + LIMITS.requests + '件、後片付け' + LIMITS.cleanupRequests + '件、間隔1秒、24時間に1回。実API操作には --execute を指定してください。'); return;
   }
   const key = process.env.NOTION_TEST_KEY?.trim(); if (!key) throw new Error('NOTION_TEST_KEY is required.');

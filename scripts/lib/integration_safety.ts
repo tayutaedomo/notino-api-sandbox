@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-export const LIMITS = { databases: 4, pages: 6, blocks: 9, requests: 120, cleanupRequests: 30, intervalMs: 1000, maxRuns: 5 } as const;
+export const LIMITS = { databases: 4, pages: 5, blocks: 6, requests: 80, cleanupRequests: 30, intervalMs: 1000, maxRuns: 5 } as const;
 type Resource = { id: string; trashed: boolean };
 export interface RunState {
   id: string; parent: string; startedAt: string; status: 'running' | 'cleanup' | 'complete';
