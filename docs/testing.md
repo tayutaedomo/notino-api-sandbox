@@ -5,6 +5,7 @@
 ## 目次
 
 - [実行コマンド](#実行コマンド)
+- [CIでの自動実行](#ciでの自動実行)
 - [モックで確認する仕様](#モックで確認する仕様)
 - [実APIとの使い分け](#実apiとの使い分け)
 - [変更とコミットの進め方](#変更とコミットの進め方)
@@ -26,6 +27,16 @@ yarn test:http
 - Notionへの接続やリソース作成は行いません。
 - HTTPテストはローカル通信のみ許可し、Notion通信をモックします。
 - テスト基盤はNode.js標準 `node:test`、`ts-node`、Nock 14です。
+
+## CIでの自動実行
+
+[GitHub ActionsのCI](../.github/workflows/ci.yml)で、PRと `main` へのpush時にテストを実行します。
+
+- `main` への直接pushも対象です。コミット種別や変更ファイルによる除外はありません。
+- Ubuntu・Node.js 24・Yarn 1.22.22で実行します。
+- `yarn install --frozen-lockfile --non-interactive` でロックファイルに従って依存関係をインストールします。
+- `yarn typecheck` → `yarn test` → `yarn test:http` の順に実行し、失敗したらジョブを停止します。
+- 実API検証は実行しません。Notionの認証情報をGitHubへ登録する必要はありません。
 
 ## モックで確認する仕様
 

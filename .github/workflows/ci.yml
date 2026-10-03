@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 型チェックとテスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: ソースを取得
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Node.jsを準備
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Yarnを準備
+        run: npm install --global yarn@1.22.22
+
+      - name: 依存関係をインストール
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: 型チェック
+        run: yarn typecheck
+
+      - name: 単体テスト
+        run: yarn test
+
+      - name: GCFのビルドとローカルHTTPテスト
+        run: yarn test:http
