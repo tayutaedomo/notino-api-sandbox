@@ -42,7 +42,14 @@ yarn test:http
 - `main` への直接pushも対象です。コミット種別や変更ファイルによる除外はありません。
 - Ubuntu・Node.js 24・Yarn 1.22.22で実行します。
 - `yarn install --frozen-lockfile --non-interactive` でロックファイルに従って依存関係をインストールします。
-- `yarn typecheck` → `yarn test` → `yarn test:http` の順に実行し、失敗したらジョブを停止します。
+- 次の3ジョブを並列に実行し、結果を個別に表示します。各ジョブは途中で失敗したら停止します。
+
+| ジョブ | 実行内容 |
+|---|---|
+| 静的チェック | `yarn lint` → `yarn format:check` → `yarn typecheck` |
+| CLI・共通処理 | `yarn test` |
+| GCF | `yarn test:http`（ビルドとローカルHTTPテスト） |
+
 - 実API検証は実行しません。Notionの認証情報をGitHubへ登録する必要はありません。
 
 ## モックで確認する仕様
