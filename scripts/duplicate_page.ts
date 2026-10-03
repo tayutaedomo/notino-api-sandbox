@@ -1,8 +1,8 @@
-import { Client } from '@notionhq/client';
+import { createNotionClient } from '../functions/lib/notion_client';
 import { duplicatePage } from '../functions/lib/notion_duplicate_page';
 
 async function main(): Promise<void> {
-  const notion = new Client({ auth: process.env.NOTION_KEY });
+  const notion = createNotionClient();
   const databaseId = process.argv[2];
 
   if (!databaseId) {

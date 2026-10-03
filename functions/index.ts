@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Client } from '@notionhq/client';
+import { createNotionClient } from './lib/notion_client';
 import { copyPage } from './lib/notion_copy_page';
 import { duplicatePage } from './lib/notion_duplicate_page';
 import { createPage } from './lib/notion_create_page';
@@ -11,7 +11,7 @@ export const helloWorld = (req: Request, res: Response) => {
 // Endpoint: notionAuth
 export const notionAuth = async (req: Request, res: Response) => {
   const NOTION_KEY = process.env.NOTION_KEY || '';
-  const notion = new Client({ auth: NOTION_KEY });
+  const notion = createNotionClient(NOTION_KEY);
   const response = await notion.users.list({});
   res.json(response);
 };
@@ -25,7 +25,7 @@ export const notionCreatePage = async (req: Request, res: Response) => {
   }
 
   const NOTION_KEY = process.env.NOTION_KEY || '';
-  const notion = new Client({ auth: NOTION_KEY });
+  const notion = createNotionClient(NOTION_KEY);
 
   const titleSuffix = (req.query.title as string) || 'Title';
   const result = await createPage(notion, databaseId, titleSuffix);
@@ -41,7 +41,7 @@ export const notionDuplicatePage = async (req: Request, res: Response) => {
   }
 
   const NOTION_KEY = process.env.NOTION_KEY || '';
-  const notion = new Client({ auth: NOTION_KEY });
+  const notion = createNotionClient(NOTION_KEY);
 
   const result = await duplicatePage(notion, databaseId);
   res.json(result);

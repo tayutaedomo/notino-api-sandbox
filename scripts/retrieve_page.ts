@@ -1,7 +1,7 @@
-import { Client } from '@notionhq/client';
+import { createNotionClient } from '../functions/lib/notion_client';
 
 async function main(): Promise<void> {
-  const notion = new Client({ auth: process.env.NOTION_KEY });
+  const notion = createNotionClient();
   const pageId = process.argv[2];
 
   try {

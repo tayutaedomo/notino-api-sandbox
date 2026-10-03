@@ -1,7 +1,7 @@
-import { Client } from '@notionhq/client';
+import { createNotionClient } from '../functions/lib/notion_client';
 
 async function main(): Promise<void> {
-  const notion = new Client({ auth: process.env.NOTION_KEY });
+  const notion = createNotionClient();
 
   const response = await notion.users.list({});
   console.log('Got response:', response);

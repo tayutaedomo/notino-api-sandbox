@@ -1,12 +1,13 @@
-import { Client } from '@notionhq/client';
+import { Client, isFullPage } from '@notionhq/client';
+import { createNotionClient, resolveDataSource } from './notion_client';
 import {
   CreatePageResponse,
   PageObjectResponse,
-  QueryDatabaseParameters,
+  QueryDataSourceParameters,
   CreatePageParameters,
-} from '@notionhq/client/build/src/api-endpoints';
+} from '@notionhq/client';
 
-type DatabaseFilter = QueryDatabaseParameters['filter'];
+type DatabaseFilter = QueryDataSourceParameters['filter'];
 type CreateProperties = CreatePageParameters['properties'];
 type SourceProperties = PageObjectResponse['properties'];
 
@@ -54,7 +55,7 @@ export async function copyPage(
   notionKey: string,
   params: CopyPageParams
 ): Promise<CopyPageResult> {
-  const notion = new Client({ auth: notionKey });
+  const notion = createNotionClient(notionKey);
   const {
     databaseId,
     searchProperty,
@@ -63,9 +64,10 @@ export async function copyPage(
     sortDirection = 'descending',
   } = params;
 
+  const dataSourceId = await resolveDataSource(notion, databaseId);
   const sourcePage = await queryPage(
     notion,
-    databaseId,
+    dataSourceId,
     searchProperty,
     searchValue,
     sortProperty,
@@ -76,7 +78,7 @@ export async function copyPage(
   }
 
   const sourceBlocks = await queryPageBlocks(notion, sourcePage.id);
-  const newPage = await createPageCopy(notion, databaseId, sourcePage);
+  const newPage = await createPageCopy(notion, dataSourceId, sourcePage);
   const newBlocks = await appendBlocks(notion, newPage.id, sourceBlocks);
 
   return {
@@ -94,10 +96,19 @@ async function queryPage(
   sortProperty: string,
   sortDirection: string
 ): Promise<PageObjectResponse | null> {
-  const filter = createFilter(searchProperty, searchValue);
+  const source = await notion.dataSources.retrieve({ data_source_id: databaseId });
+  if (!('properties' in source)) throw new Error('Data source schema is unavailable.');
+  const property = source.properties[searchProperty] || Object.values(source.properties).find(item => item.id === searchProperty);
+  if (!property || (property.type !== 'title' && property.type !== 'rich_text')) {
+    throw new Error('Search property must be title or rich_text.');
+  }
+  const filter: DatabaseFilter = property.type === 'title'
+    ? { property: searchProperty, title: { contains: searchValue } }
+    : { property: searchProperty, rich_text: { contains: searchValue } };
+  if (sortDirection !== 'ascending' && sortDirection !== 'descending') throw new Error('Invalid sort direction.');
 
-  const response = await notion.databases.query({
-    database_id: databaseId,
+  const response = await notion.dataSources.query({
+    data_source_id: databaseId,
     page_size: 1,
     filter,
     sorts: [
@@ -108,28 +119,10 @@ async function queryPage(
     ],
   });
 
-  return response.results.length > 0
-    ? (response.results[0] as PageObjectResponse)
-    : null;
-}
-
-function createFilter(property: string, value: string): DatabaseFilter {
-  return {
-    or: [
-      {
-        property,
-        title: {
-          contains: value,
-        },
-      },
-      {
-        property,
-        rich_text: {
-          contains: value,
-        },
-      },
-    ],
-  };
+  const page = response.results[0];
+  if (!page) return null;
+  if (!isFullPage(page)) throw new Error('Source page properties are unavailable.');
+  return page;
 }
 
 async function queryPageBlocks(
@@ -187,7 +180,7 @@ async function createPageCopy(
 
   const createPageParams: CreatePageParameters = {
     parent: {
-      database_id: databaseId,
+      data_source_id: databaseId,
     },
     properties,
   };

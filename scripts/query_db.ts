@@ -1,11 +1,12 @@
-import { Client } from '@notionhq/client';
+import { createNotionClient, resolveDataSource } from '../functions/lib/notion_client';
 
 async function main(): Promise<void> {
-  const notion = new Client({ auth: process.env.NOTION_KEY });
+  const notion = createNotionClient();
   const databaseId = process.argv[2];
 
-  const response = await notion.databases.query({
-    database_id: databaseId,
+  const dataSourceId = await resolveDataSource(notion, databaseId);
+  const response = await notion.dataSources.query({
+    data_source_id: dataSourceId,
     page_size: 3,
     sorts: [
       {

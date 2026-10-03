@@ -1,15 +1,17 @@
 import { Client } from '@notionhq/client';
+import { resolveDataSource } from './notion_client';
 import {
   BlockObjectResponse,
   CreatePageResponse,
   PartialBlockObjectResponse,
-} from '@notionhq/client/build/src/api-endpoints';
+} from '@notionhq/client';
 
 export async function duplicatePage(notion: Client, databaseId: string) {
-  const latestPage = await queryLatestPage(notion, databaseId);
+  const dataSourceId = await resolveDataSource(notion, databaseId);
+  const latestPage = await queryLatestPage(notion, dataSourceId);
   const latestBlocks = await queryLatestPageBlocks(notion, latestPage.id);
 
-  const newPage = await createPage(notion, databaseId);
+  const newPage = await createPage(notion, dataSourceId);
   console.log('New page created.', databaseId);
 
   const newBlocks = await appendBlocks(notion, newPage.id, latestBlocks);
@@ -22,8 +24,8 @@ async function queryLatestPage(
   notion: Client,
   databaseId: string
 ): Promise<any> {
-  const response = await notion.databases.query({
-    database_id: databaseId,
+  const response = await notion.dataSources.query({
+    data_source_id: databaseId,
     page_size: 1,
     filter: {
       property: 'Tags',
@@ -70,7 +72,7 @@ async function createPage(
 
   return await notion.pages.create({
     parent: {
-      database_id: databaseId,
+      data_source_id: databaseId,
     },
     // favorite: true, // Not supported yet?
     icon: {
