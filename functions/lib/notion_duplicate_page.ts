@@ -1,20 +1,20 @@
-import { Client } from '@notionhq/client';
+import { Client, isFullPage } from '@notionhq/client';
+import { fetchPreparedBlocks, appendPreparedBlocks } from './notion_blocks';
 import { resolveDataSource } from './notion_client';
 import {
-  BlockObjectResponse,
   CreatePageResponse,
-  PartialBlockObjectResponse,
 } from '@notionhq/client';
 
 export async function duplicatePage(notion: Client, databaseId: string) {
   const dataSourceId = await resolveDataSource(notion, databaseId);
   const latestPage = await queryLatestPage(notion, dataSourceId);
-  const latestBlocks = await queryLatestPageBlocks(notion, latestPage.id);
+  if (!latestPage) throw new Error('No matching page found');
+  const latestBlocks = await fetchPreparedBlocks(notion, latestPage.id);
 
   const newPage = await createPage(notion, dataSourceId);
   console.log('New page created.', databaseId);
 
-  const newBlocks = await appendBlocks(notion, newPage.id, latestBlocks);
+  const newBlocks = await appendPreparedBlocks(notion, newPage.id, latestBlocks);
   console.log('New blocks appended.', databaseId, newPage.id);
 
   return { databaseId, newPage, newBlocks };
@@ -23,7 +23,7 @@ export async function duplicatePage(notion: Client, databaseId: string) {
 async function queryLatestPage(
   notion: Client,
   databaseId: string
-): Promise<any> {
+) {
   const response = await notion.dataSources.query({
     data_source_id: databaseId,
     page_size: 1,
@@ -41,19 +41,10 @@ async function queryLatestPage(
     ],
   });
 
-  return response.results.length > 0 ? response.results[0] : null;
-}
-
-async function queryLatestPageBlocks(
-  notion: Client,
-  pageId: string
-): Promise<(PartialBlockObjectResponse | BlockObjectResponse)[]> {
-  const response = await notion.blocks.children.list({
-    block_id: pageId,
-    page_size: 100,
-  });
-
-  return response.results.length > 0 ? response.results : [];
+  const page = response.results[0];
+  if (!page) return null;
+  if (!isFullPage(page)) throw new Error('Source page properties are unavailable.');
+  return page;
 }
 
 async function createPage(
@@ -102,26 +93,5 @@ async function createPage(
         ],
       },
     },
-  });
-}
-
-async function appendBlocks(
-  notion: Client,
-  pageId: string,
-  sourceBlocks: (PartialBlockObjectResponse | BlockObjectResponse)[]
-) {
-  const newBlocks = sourceBlocks.map((block: any) => {
-    delete block.id;
-
-    if (block.type === 'to_do' && block.to_do) {
-      block.to_do.checked = false;
-    }
-
-    return block;
-  });
-
-  return await notion.blocks.children.append({
-    block_id: pageId,
-    children: newBlocks as any,
   });
 }

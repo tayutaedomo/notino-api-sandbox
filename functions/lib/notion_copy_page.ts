@@ -1,4 +1,5 @@
 import { Client, isFullPage } from '@notionhq/client';
+import { fetchPreparedBlocks, appendPreparedBlocks } from './notion_blocks';
 import { createNotionClient, resolveDataSource } from './notion_client';
 import {
   CreatePageResponse,
@@ -10,32 +11,6 @@ import {
 type DatabaseFilter = QueryDataSourceParameters['filter'];
 type CreateProperties = CreatePageParameters['properties'];
 type SourceProperties = PageObjectResponse['properties'];
-
-interface NotionUser {
-  id: string;
-  name?: string;
-  avatar_url?: string;
-}
-
-interface NotionParent {
-  type: string;
-  page_id?: string;
-  database_id?: string;
-  workspace?: boolean;
-}
-
-interface BlockWithChildren {
-  id: string;
-  type: string;
-  has_children: boolean;
-  created_time: string;
-  created_by: NotionUser;
-  last_edited_time: string;
-  last_edited_by: NotionUser;
-  parent: NotionParent;
-  children?: BlockWithChildren[];
-  [key: string]: unknown;
-}
 
 export interface CopyPageParams {
   databaseId: string;
@@ -77,9 +52,9 @@ export async function copyPage(
     throw new Error('No matching page found');
   }
 
-  const sourceBlocks = await queryPageBlocks(notion, sourcePage.id);
+  const sourceBlocks = await fetchPreparedBlocks(notion, sourcePage.id);
   const newPage = await createPageCopy(notion, dataSourceId, sourcePage);
-  const newBlocks = await appendBlocks(notion, newPage.id, sourceBlocks);
+  const newBlocks = await appendPreparedBlocks(notion, newPage.id, sourceBlocks);
 
   return {
     sourcePage: { id: sourcePage.id },
@@ -123,52 +98,6 @@ async function queryPage(
   if (!page) return null;
   if (!isFullPage(page)) throw new Error('Source page properties are unavailable.');
   return page;
-}
-
-async function queryPageBlocks(
-  notion: Client,
-  pageId: string
-): Promise<BlockWithChildren[]> {
-  return await fetchBlocksRecursively(notion, pageId);
-}
-
-async function fetchBlocksRecursively(
-  notion: Client,
-  blockId: string,
-  depth: number = 0
-): Promise<BlockWithChildren[]> {
-  const blocks: BlockWithChildren[] = [];
-  let cursor: string | undefined = undefined;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await notion.blocks.children.list({
-      block_id: blockId,
-      page_size: 100,
-      start_cursor: cursor,
-    });
-
-    for (const block of response.results) {
-      if ('type' in block) {
-        const blockWithChildren: BlockWithChildren = block as BlockWithChildren;
-
-        if (block.has_children) {
-          blockWithChildren.children = await fetchBlocksRecursively(
-            notion,
-            block.id,
-            depth + 1
-          );
-        }
-
-        blocks.push(blockWithChildren);
-      }
-    }
-
-    hasMore = response.has_more;
-    cursor = response.next_cursor || undefined;
-  }
-
-  return blocks;
 }
 
 async function createPageCopy(
@@ -299,131 +228,4 @@ function copyProperties(sourceProperties: SourceProperties): CreateProperties {
   }
 
   return copiedProperties;
-}
-
-async function appendBlocks(
-  notion: Client,
-  pageId: string,
-  sourceBlocks: BlockWithChildren[]
-) {
-  const blocksToAppend: any[] = [];
-  const blocksWithChildrenMap: Map<number, BlockWithChildren[]> = new Map();
-
-  // 最初に親ブロックのみを準備し、子ブロックは別途記録
-  for (let i = 0; i < sourceBlocks.length; i++) {
-    const block = sourceBlocks[i];
-    const {
-      id,
-      created_time,
-      created_by,
-      last_edited_time,
-      last_edited_by,
-      parent,
-      children,
-      ...blockWithoutMetadata
-    } = block;
-
-    // ブロック内容のクリーンアップ
-    const cleanedBlock = cleanBlockContent(blockWithoutMetadata);
-
-    if (cleanedBlock.type === 'to_do' && cleanedBlock.to_do) {
-      (cleanedBlock.to_do as { checked: boolean }).checked = false;
-    }
-
-    // 子ブロックがある場合は別途記録（APIには送信しない）
-    if (children && children.length > 0) {
-      blocksWithChildrenMap.set(i, children);
-    }
-
-    blocksToAppend.push(cleanedBlock);
-  }
-
-  // 親ブロックを追加
-  const result = await notion.blocks.children.append({
-    block_id: pageId,
-    children: blocksToAppend,
-  });
-
-  // 子ブロックがあるものについて、順次追加（再帰的に処理）
-  for (const [blockIndex, children] of blocksWithChildrenMap.entries()) {
-    const parentBlockId = result.results[blockIndex].id;
-    await appendBlocks(notion, parentBlockId, children);
-  }
-
-  return result;
-}
-
-function cleanBlockContent(block: any): any {
-  const cleaned = JSON.parse(JSON.stringify(block));
-
-  // rich_textを含むブロックタイプをクリーンアップ
-  const blockTypeProperty = cleaned[cleaned.type];
-  if (blockTypeProperty && blockTypeProperty.rich_text) {
-    blockTypeProperty.rich_text = cleanRichText(blockTypeProperty.rich_text);
-  }
-
-  return cleaned;
-}
-
-function cleanRichText(richText: any[]): any[] {
-  return richText.map((item: any) => {
-    if (item.mention) {
-      if (isValidMention(item.mention)) {
-        return item;
-      } else {
-        return {
-          type: 'text',
-          text: {
-            content: item.plain_text || '[mention]',
-            link: null,
-          },
-          annotations: item.annotations || {},
-        };
-      }
-    }
-    return item;
-  });
-}
-
-function isValidMention(mention: any): boolean {
-  const mentionObj = mention;
-
-  // userタイプ
-  if (
-    mentionObj.user?.id &&
-    typeof mentionObj.user.id === 'string' &&
-    mentionObj.user.id.length > 0
-  ) {
-    return true;
-  }
-
-  // pageタイプ
-  if (
-    mentionObj.page?.id &&
-    typeof mentionObj.page.id === 'string' &&
-    mentionObj.page.id.length > 0
-  ) {
-    return true;
-  }
-
-  // databaseタイプ
-  if (
-    mentionObj.database?.id &&
-    typeof mentionObj.database.id === 'string' &&
-    mentionObj.database.id.length > 0
-  ) {
-    return true;
-  }
-
-  // dateタイプ
-  if (mentionObj.date?.start && typeof mentionObj.date.start === 'string') {
-    return true;
-  }
-
-  // template_mentionタイプ
-  if (mentionObj.template_mention?.type) {
-    return true;
-  }
-
-  return false;
 }
