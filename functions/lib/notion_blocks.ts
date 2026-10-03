@@ -30,7 +30,7 @@ const fields: Record<string, readonly string[]> = {
   heading_2: ['rich_text', 'color', 'is_toggleable'], heading_3: ['rich_text', 'color', 'is_toggleable'],
   bulleted_list_item: ['rich_text', 'color'], numbered_list_item: ['rich_text', 'color'],
   quote: ['rich_text', 'color'], to_do: ['rich_text', 'color'], toggle: ['rich_text', 'color'],
-  template: ['rich_text'], callout: ['rich_text', 'color', 'icon'], code: ['rich_text', 'caption', 'language'],
+  callout: ['rich_text', 'color', 'icon'], code: ['rich_text', 'caption', 'language'],
   equation: ['expression'], divider: [], breadcrumb: [], table_of_contents: ['color'],
   bookmark: ['url', 'caption'], embed: ['url', 'caption'], link_to_page: ['type', 'page_id', 'database_id', 'comment_id'],
   image: ['type', 'external', 'file', 'caption'], video: ['type', 'external', 'file', 'caption'],

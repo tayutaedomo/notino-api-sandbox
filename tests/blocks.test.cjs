@@ -53,7 +53,7 @@ for (const mode of ['copy', 'diary']) {
     api().patch('/v1/blocks/new-child/children', body => { assert.equal(body.children[0].to_do.checked, false); return true; }).reply(200, list([{ id: 'new-grandchild' }]));
     await execute(mode);
   });
-  for (const type of ['meeting_notes', 'unsupported', 'child_page', 'link_preview']) {
+  for (const type of ['template', 'meeting_notes', 'unsupported', 'child_page', 'link_preview']) {
     test(mode + ' の作成不能ブロックは新ページ作成前に拒否: ' + type, async () => {
       setup(mode, [block('bad', type)]);
       await assert.rejects(execute(mode), /Cannot copy block type/);
