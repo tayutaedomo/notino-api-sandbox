@@ -1,11 +1,12 @@
 import path from 'node:path';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { Client, CreateDatabaseParameters } from '@notionhq/client';
+import { Client, CreateDatabaseParameters, GetDatabaseResponse } from '@notionhq/client';
 import { readState, saveState, record, writeJson } from './integration_safety';
 
 const roles = ['Retro', 'Body', 'Sleep', 'Diary'] as const;
 type Role = typeof roles[number];
 type Entry = { role: Role; id: string; dataSourceId?: string };
+export interface PreparedPool { databaseIds: string[]; dataSourceIds: string[]; statusName: string }
 interface Pool { version: 1; parent: string; ownerRunId: string; attempted: Role[]; databases: Entry[] }
 const same = (a: string, b: string) => a.replace(/-/g, '').toLowerCase() === b.replace(/-/g, '').toLowerCase();
 const poolFile = (file: string) => path.join(path.dirname(file), 'pool.json');
@@ -20,8 +21,8 @@ function schema(role: Role): NonNullable<NonNullable<CreateDatabaseParameters['i
   return role !== 'Diary' ? { Name: { title: {} }, Date: { date: {} }, 'Created time': { created_time: {} } }
     : { Name: { title: {} }, Month: { number: {} }, Tags: { multi_select: { options: [{ name: 'diary' }] } }, Status: { status: {} }, 'Created time': { created_time: {} } };
 }
-async function validateDatabase(notion: Client, pool: Pool, entry: Entry): Promise<string> {
-  const database = await notion.databases.retrieve({ database_id: entry.id });
+async function validateDatabase(notion: Client, pool: Pool, entry: Entry, created?: GetDatabaseResponse): Promise<string> {
+  const database = created && 'parent' in created ? created : await notion.databases.retrieve({ database_id: entry.id });
   const expected = 'Notion API Test ' + pool.ownerRunId + ' ' + entry.role;
   if (!('parent' in database) || database.parent.type !== 'page_id' || !same(database.parent.page_id, pool.parent) || database.in_trash ||
       database.title.map(item => item.plain_text).join('') !== expected || database.data_sources.length !== 1) throw new Error('Test database ownership or availability changed.');
@@ -29,7 +30,7 @@ async function validateDatabase(notion: Client, pool: Pool, entry: Entry): Promi
   if (entry.dataSourceId && !same(entry.dataSourceId, id)) throw new Error('Test data source changed.');
   return id;
 }
-async function validateSchema(notion: Client, role: Role, id: string): Promise<void> {
+async function validateSchema(notion: Client, role: Role, id: string): Promise<string> {
   const source = await notion.dataSources.retrieve({ data_source_id: id });
   if (!('properties' in source)) throw new Error('Test schema is unavailable.');
   for (const [name, value] of Object.entries(schema(role))) {
@@ -38,7 +39,9 @@ async function validateSchema(notion: Client, role: Role, id: string): Promise<v
   if (role === 'Diary') {
     const status = source.properties.Status;
     if (status.type !== 'status' || !status.status.options.length) throw new Error('Status needs at least one option.');
+    return status.status.options[0].name;
   }
+  return '';
 }
 /** Recover IDs persisted by the transport if the process stopped before registry update. */
 export async function synchronizePool(file: string, notion: Client): Promise<void> {
@@ -55,9 +58,9 @@ export async function synchronizePool(file: string, notion: Client): Promise<voi
     pool.databases.push(entry); writeJson(registry, pool); record(file, 'database_registered', { databaseId: entry.id, role, recovered: true });
   }
 }
-export async function preparePool(file: string, notion: Client): Promise<string[]> {
+export async function preparePool(file: string, notion: Client): Promise<PreparedPool> {
   const registry = poolFile(file); const state = readState(file); state.databasePolicy = 'retain'; saveState(file, state);
-  let pool: Pool;
+  let pool: Pool; let statusName = '';
   if (existsSync(registry)) pool = readPool(registry);
   else {
     const retained = readdirSync(path.dirname(file)).filter(name => name !== 'lock.json' && name !== 'pool.json' && name.endsWith('.json')).map(name => readState(path.join(path.dirname(file), name)));
@@ -70,7 +73,8 @@ export async function preparePool(file: string, notion: Client): Promise<string[
   saveState(file, current);
   // Validate every existing DB before creating any missing initial DB.
   for (const entry of pool.databases) {
-    const id = await validateDatabase(notion, pool, entry); await validateSchema(notion, entry.role, id);
+    const id = await validateDatabase(notion, pool, entry); const status = await validateSchema(notion, entry.role, id);
+    if (entry.role === 'Diary') statusName = status;
     entry.dataSourceId = id; writeJson(registry, pool); record(file, 'database_reused', { databaseId: entry.id, dataSourceId: id, role: entry.role });
   }
   for (const role of roles) {
@@ -79,8 +83,9 @@ export async function preparePool(file: string, notion: Client): Promise<string[
     pool.attempted.push(role); writeJson(registry, pool); record(file, 'database_creation_planned', { role });
     const database = await notion.databases.create({ parent: { type: 'page_id', page_id: pool.parent }, title: [{ text: { content: 'Notion API Test ' + pool.ownerRunId + ' ' + role } }], initial_data_source: { properties: schema(role) } });
     const entry: Entry = { role, id: database.id }; pool.databases.push(entry); writeJson(registry, pool);
-    const id = await validateDatabase(notion, pool, entry); entry.dataSourceId = id; writeJson(registry, pool);
-    await validateSchema(notion, role, id); record(file, 'database_registered', { databaseId: entry.id, dataSourceId: id, role });
+    const id = await validateDatabase(notion, pool, entry, database); entry.dataSourceId = id; writeJson(registry, pool);
+    const status = await validateSchema(notion, role, id); if (role === 'Diary') statusName = status; record(file, 'database_registered', { databaseId: entry.id, dataSourceId: id, role });
   }
-  return roles.map(role => pool.databases.find(entry => entry.role === role)!.id);
+  const entries = roles.map(role => pool.databases.find(entry => entry.role === role)!);
+  return { databaseIds: entries.map(entry => entry.id), dataSourceIds: entries.map(entry => entry.dataSourceId!), statusName };
 }

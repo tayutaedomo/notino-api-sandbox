@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { isFullPage } from '@notionhq/client';
 import { createNotionClient } from '../functions/lib/notion_client';
 import { acquireLock, completeRun, createRun, IntegrationTransport, LIMITS, readState, record, validId } from './lib/integration_safety';
-import { preparePool, synchronizePool } from './lib/integration_pool';
+import { preparePool, synchronizePool, PreparedPool } from './lib/integration_pool';
 import { verifyIntegration } from './verify_integration';
 
 async function cleanupLegacyDatabases(file: string, guard: IntegrationTransport, key: string): Promise<void> {
@@ -42,11 +42,11 @@ export async function cleanupRun(file: string, guard: IntegrationTransport, key:
   completeRun(file);
 }
 
-export async function provisionAndVerify(file: string, guard: IntegrationTransport, key: string, verify: (ids: string[]) => Promise<void>): Promise<void> {
+export async function provisionAndVerify(file: string, guard: IntegrationTransport, key: string, verify: (ids: string[], prepared: PreparedPool) => Promise<void>): Promise<void> {
   const notion = createNotionClient(key, { fetch: guard.fetch });
   try {
-    const ids = await preparePool(file, notion);
-    record(file, 'verification_started'); await verify(ids); record(file, 'verification_succeeded');
+    const prepared = await preparePool(file, notion);
+    record(file, 'verification_started'); await verify(prepared.databaseIds, prepared); record(file, 'verification_succeeded');
   } catch { record(file, 'provision_failed'); throw new Error('Preparation or verification failed. See the audit log.'); }
   finally { await cleanupRun(file, guard, key); }
 }
@@ -82,14 +82,14 @@ async function main(): Promise<void> {
       const notion = createNotionClient(key, { fetch: guard.fetch });
       const page = await notion.pages.retrieve({ page_id: parent! });
       if (!isFullPage(page) || page.in_trash) throw new Error('Dedicated parent page is unavailable.');
-      await provisionAndVerify(file, guard, key, async ids => {
+      await provisionAndVerify(file, guard, key, async (ids, prepared) => {
         const originalFetch = globalThis.fetch; const original = { ...process.env };
         try {
           globalThis.fetch = guard.fetch; process.env.NOTION_TEST_RUN_FILE = file;
           process.env.NODE_OPTIONS = '--require ' + JSON.stringify(path.resolve('scripts/lib/integration-preload.cjs'));
           process.env.NOTION_TEST_DATA_SOURCE_MAP = '';
           ids.forEach((id, index) => { process.env['NOTION_TEST_DB_ID_' + (index + 1)] = id; });
-          await verifyIntegration(guard);
+          await verifyIntegration(guard, prepared);
         } finally {
           globalThis.fetch = originalFetch;
           for (const name of Object.keys(process.env)) if (!(name in original)) delete process.env[name];

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { isFullPage, isFullBlock, PageObjectResponse, Client } from '@notionhq/client';
-import { createNotionClient, resolveDataSource } from '../functions/lib/notion_client';
+import { createNotionClient } from '../functions/lib/notion_client';
 import { copyPage } from '../functions/lib/notion_copy_page';
-import { IntegrationTransport, runCli } from './lib/integration_safety';
+import { IntegrationTransport, runCli, readState } from './lib/integration_safety';
+import { PreparedPool } from './lib/integration_pool';
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -11,19 +12,14 @@ function required(name: string): string {
   return value;
 }
 
-async function rows(notion: Client, dataSourceId: string): Promise<PageObjectResponse[]> {
-  const pages: PageObjectResponse[] = [];
-  let cursor: string | undefined;
-  do {
-    const response = await notion.dataSources.query({ data_source_id: dataSourceId, start_cursor: cursor, page_size: 100 });
-    for (const page of response.results) {
-      if (!isFullPage(page)) throw new Error('Test page properties are unavailable.');
-      pages.push(page);
-    }
-    if (response.has_more && !response.next_cursor) throw new Error('Missing query cursor.');
-    cursor = response.has_more ? response.next_cursor! : undefined;
-  } while (cursor);
-  return pages;
+async function expectRows(notion: Client, dataSourceId: string, count: number): Promise<PageObjectResponse[]> {
+  const response = await notion.dataSources.query({ data_source_id: dataSourceId, page_size: count + 1 });
+  assert.equal(response.results.length, count, 'Unexpected test database page count.');
+  assert.equal(response.has_more, false, 'Unexpected additional test pages.');
+  return response.results.map(page => {
+    if (!isFullPage(page)) throw new Error('Test page properties are unavailable.');
+    return page;
+  });
 }
 
 function title(page: PageObjectResponse): string {
@@ -47,7 +43,7 @@ async function verifyBody(notion: Client, pageId: string, marker: string): Promi
   assert.equal(text.paragraph.rich_text.map(item => item.plain_text).join(''), marker);
 }
 
-export async function verifyIntegration(guard?: IntegrationTransport): Promise<void> {
+export async function verifyIntegration(guard?: IntegrationTransport, prepared?: PreparedPool): Promise<void> {
   // Never fall back to production credentials or IDs.
   const key = required('NOTION_TEST_KEY');
   const databaseIds = [1, 2, 3, 4].map(i => required('NOTION_TEST_DB_ID_' + i));
@@ -58,26 +54,18 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
   if (!guard || guard.file !== process.env.NOTION_TEST_RUN_FILE) throw new Error('Audited integration run is required. Use yarn test:integration --execute.');
   process.env.NOTION_DATA_SOURCE_MAP = process.env.NOTION_TEST_DATA_SOURCE_MAP || '';
   const notion = createNotionClient(key);
-  const sources: string[] = [];
-  let statusName = '';
-  for (const [index, databaseId] of databaseIds.entries()) {
-    const id = await resolveDataSource(notion, databaseId);
-    const schema = await notion.dataSources.retrieve({ data_source_id: id });
-    if (!('properties' in schema)) throw new Error('Test schema is unavailable.');
-    const expected: Record<string, string> = index < 3
-      ? { Name: 'title', Date: 'date', 'Created time': 'created_time' }
-      : { Name: 'title', Month: 'number', Tags: 'multi_select', Status: 'status', 'Created time': 'created_time' };
-    for (const [name, type] of Object.entries(expected)) {
-      if (schema.properties[name]?.type !== type) throw new Error(name + ' must be ' + type + '.');
-    }
-    if (index === 3) {
-      const status = schema.properties.Status;
-      if (status.type !== 'status' || !status.status.options.length) throw new Error('Status needs at least one option.');
-      statusName = status.status.options[0].name;
-    }
-    if ((await rows(notion, id)).length) throw new Error('Dedicated test databases must be empty before verification.');
-    sources.push(id);
+  assert.ok(prepared, 'Verified database preparation is required.');
+  assert.deepEqual(prepared.databaseIds.map(id => id.replace(/-/g, '').toLowerCase()), normalized);
+  assert.equal(prepared.dataSourceIds.length, 4);
+  assert.equal(new Set(prepared.dataSourceIds).size, 4);
+  assert.ok(prepared.statusName, 'Status needs at least one option.');
+  const sources = prepared.dataSourceIds;
+  const owned = readState(guard.file).resources.sources;
+  for (const id of sources) {
+    assert.ok(owned.some(source => source.replace(/-/g, '').toLowerCase() === id.replace(/-/g, '').toLowerCase()), 'Data source was not verified by this run.');
+    await expectRows(notion, id, 0);
   }
+  const statusName = prepared.statusName;
   const today = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' });
   const date = today.replace(/\//g, '-');
   const day = today.replace(/\//g, '').slice(2);
@@ -85,10 +73,9 @@ export async function verifyIntegration(guard?: IntegrationTransport): Promise<v
   const env = { ...process.env, NOTION_KEY: key, ...Object.fromEntries(databaseIds.map((id, i) => ['NOTION_DB_ID_' + (i + 1), id])) };
   const run = (command: string, args: string[], options: { env: NodeJS.ProcessEnv; timeout: number }) => runCli(guard.file, command, args, options);
   await run('yarn', ['all:create'], { env, timeout: 120000 });
-  assert.equal((await rows(notion, sources[3])).length, 0);
+  await expectRows(notion, sources[3], 0);
   for (let i = 0; i < 3; i++) {
-    const pages = await rows(notion, sources[i]); assert.equal(pages.length, 1);
-    const page = await notion.pages.retrieve({ page_id: pages[0].id }); assert.ok(isFullPage(page));
+    const [page] = await expectRows(notion, sources[i], 1);
     assert.equal(title(page), day + ' ' + ['Retro', 'Body', 'Sleep'][i]);
     const value = page.properties.Date; assert.ok(value.type === 'date'); assert.equal(value.date?.start, date);
     assert.ok(page.parent.type === 'data_source_id'); assert.equal(page.parent.data_source_id, sources[i]);
