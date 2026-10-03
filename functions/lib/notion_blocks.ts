@@ -51,7 +51,11 @@ function prepare(block: BlockObjectResponse, children: PreparedBlock[]): Prepare
     if (Array.isArray(payload[key])) payload[key] = cleanRichText(payload[key] as RichTextItemResponse[]);
   }
   if (Array.isArray(payload.cells)) payload.cells = (payload.cells as RichTextItemResponse[][]).map(cleanRichText);
-  if (payload.file && typeof payload.file === 'object') payload.file = { url: (payload.file as { url: string }).url };
+  if (payload.file && typeof payload.file === 'object') {
+    payload.type = 'external';
+    payload.external = { url: (payload.file as { url: string }).url };
+    delete payload.file;
+  }
   if (payload.icon && typeof payload.icon === 'object' && (payload.icon as { type: string }).type === 'file') {
     payload.icon = { type: 'external', external: { url: (payload.icon as { file: { url: string } }).file.url } };
   }

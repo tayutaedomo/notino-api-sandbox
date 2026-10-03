@@ -46,3 +46,22 @@ test('タイムアウトを再試行しない', async () => {
   await assert.rejects(notion.users.list({}), e => e instanceof Error && 'code' in e && e.code === 'notionhq_client_request_timeout');
   assert.equal(calls, 1);
 });
+
+test('rich_textプロパティの検索は型に合うフィルターを使う', async () => {
+  const { schema, list } = require('./helpers/fixtures.cjs');
+  const { copyPage } = require('../functions/lib/notion_copy_page');
+  resolve(); schema('rich_text', 'Text');
+  api().post('/v1/data_sources/ds-db/query', body => { assert.deepEqual(body.filter, { property: 'Text', rich_text: { contains: 'needle' } }); assert.equal(body.sorts[0].direction, 'ascending'); return true; }).reply(200, list([page()]));
+  api().get('/v1/blocks/source/children').query(true).reply(200, list([]));
+  api().post('/v1/pages').reply(200, page('new'));
+  await copyPage('test-key', { databaseId: 'db', searchProperty: 'Text', searchValue: 'needle', sortProperty: 'Name', sortDirection: 'ascending' });
+});
+
+for (const type of ['number', 'missing']) {
+  test('検索できないプロパティは書き込み前に拒否: ' + type, async () => {
+    const { schema } = require('./helpers/fixtures.cjs');
+    const { copyPage } = require('../functions/lib/notion_copy_page');
+    resolve(); schema(type);
+    await assert.rejects(copyPage('test-key', { databaseId: 'db', searchProperty: 'Name', searchValue: 'needle', sortProperty: 'Name' }), /Search property must/);
+  });
+}

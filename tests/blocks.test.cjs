@@ -21,7 +21,7 @@ function setup(mode, blocks) {
 function execute(mode) { return mode === 'copy' ? copyPage('test-key', { databaseId: 'db', searchProperty: 'Name', searchValue: 'Retro', sortProperty: 'Created time' }) : duplicatePage(client(), 'db'); }
 for (const mode of ['copy', 'diary']) for (const count of [0, 1, 100, 101, 250]) {
   test(mode + ' のブロック件数: ' + count, async () => {
-    const blocks = Array.from({ length: count }, (_, i) => block('b-' + i)); setup(mode, blocks);
+    const blocks = Array.from({ length: count }, (_, i) => block('b-' + i, 'to_do', { rich_text: [{ type: 'text', text: { content: String(i), link: null } }] })); setup(mode, blocks);
     api().post('/v1/pages').reply(200, page('new'));
     for (let offset = 0; offset < count; offset += 100) {
       const size = Math.min(100, count - offset);
@@ -29,6 +29,7 @@ for (const mode of ['copy', 'diary']) for (const count of [0, 1, 100, 101, 250])
         assert.equal(body.children.length, size);
         for (const [i, child] of body.children.entries()) {
           assert.equal(child.to_do.checked, false);
+          assert.equal(child.to_do.rich_text[0].text.content, String(offset + i));
           for (const key of ['id', 'created_time', 'parent', 'has_children', 'archived', 'in_trash']) assert.equal(child[key], undefined);
         }
         return true;
