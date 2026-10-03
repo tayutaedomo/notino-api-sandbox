@@ -47,7 +47,6 @@ export const notionDuplicatePage = async (req: Request, res: Response) => {
   res.json(result);
 };
 
-
 // Endpoint: notionCopyPage
 export const notionCopyPage = async (req: Request, res: Response) => {
   const databaseId = req.query.db as string;
@@ -63,7 +62,7 @@ export const notionCopyPage = async (req: Request, res: Response) => {
 
   try {
     const NOTION_KEY = process.env.NOTION_KEY || '';
-    
+
     const result = await copyPage(NOTION_KEY, {
       databaseId,
       searchProperty,
@@ -72,7 +71,7 @@ export const notionCopyPage = async (req: Request, res: Response) => {
       sortDirection,
     });
 
-    res.json({ 
+    res.json({
       databaseId,
       ...result,
     });

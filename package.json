@@ -39,7 +39,10 @@
     "test": "node --require ts-node/register --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "test:http": "yarn gcf:build && node --require ts-node/register --test tests/http/*.test.cjs",
-    "test:integration": "node --env-file-if-exists=.env.test.local --require ts-node/register scripts/integration.ts"
+    "test:integration": "node --env-file-if-exists=.env.test.local --require ts-node/register scripts/integration.ts",
+    "lint": "eslint . --max-warnings=0",
+    "format:check": "prettier --check \"{functions,scripts,tests}/**/*.{ts,cjs}\" \"*.{json,mjs}\" \".github/workflows/*.{yml,yaml}\"",
+    "format": "prettier --write \"{functions,scripts,tests}/**/*.{ts,cjs}\" \"*.{json,mjs}\" \".github/workflows/*.{yml,yaml}\""
   },
   "dependencies": {
     "@notionhq/client": "5.27.0",
@@ -48,9 +51,14 @@
     "typescript": "~5.9.3"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@google-cloud/functions-framework": "5.0.5",
     "@types/express": "^4.17.21",
     "@types/node": "^24",
-    "nock": "^14"
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "nock": "^14",
+    "prettier": "3.9.9",
+    "typescript-eslint": "8.71.0"
   }
 }

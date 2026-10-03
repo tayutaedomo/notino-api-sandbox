@@ -1,6 +1,6 @@
 # 通常のテスト
 
-この文書は、開発時のテスト方法と確認範囲を説明します。通常はモックと型チェックを使い、Notionへ接続しません。実APIは[最終確認やモックで判断できない問題の確認](integration.md)に限ります。
+この文書は、開発時の静的チェック・テスト方法と確認範囲を説明します。通常はモックと型チェックを使い、Notionへ接続しません。実APIは[最終確認やモックで判断できない問題の確認](integration.md)に限ります。
 
 ## 目次
 
@@ -13,6 +13,8 @@
 ## 実行コマンド
 
 ```sh
+yarn lint
+yarn format:check
 yarn test
 yarn typecheck
 yarn test:http
@@ -20,12 +22,17 @@ yarn test:http
 
 | コマンド | 確認内容 |
 |---|---|
+| `lint` | ESLintで実装・テスト・設定の問題を検出（警告も失敗扱い） |
+| `format:check` | Prettierで実装・テスト・JSON・CI設定の整形を確認 |
 | `test` | Notion通信をモックし、日次コマンド・CLI・コピー・失敗ケースを確認 |
 | `typecheck` | 共通処理・CLI・テストの型チェック |
 | `test:http` | GCFをビルドし、Functions Frameworkをローカル起動してHTTP契約を確認 |
 
 - Notionへの接続やリソース作成は行いません。
 - HTTPテストはローカル通信のみ許可し、Notion通信をモックします。
+- 整形が必要な場合は `yarn format` を実行します。CIではチェックのみ行います。
+- ESLintはJavaScript・TypeScriptの推奨ルールを使用します。API境界など既存の `any` は許容し、型の検証は `typecheck` でも行います。
+- 環境変数ファイル・実API検証ログ・生成物はlint・整形の対象外です。
 - テスト基盤はNode.js標準 `node:test`、`ts-node`、Nock 14です。
 
 ## CIでの自動実行

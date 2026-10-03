@@ -1,11 +1,7 @@
 import { Client } from '@notionhq/client';
 import { resolveDataSource } from './notion_client';
 
-export async function createPage(
-  notion: Client,
-  databaseId: string,
-  titleSuffix: string
-) {
+export async function createPage(notion: Client, databaseId: string, titleSuffix: string) {
   const dataSourceId = await resolveDataSource(notion, databaseId);
   // Get today's date as `YYYY-MM-DD` format
   const todayStr = new Date().toLocaleString('ja-JP', {

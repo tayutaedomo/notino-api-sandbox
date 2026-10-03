@@ -1,9 +1,7 @@
 import { Client, isFullPage } from '@notionhq/client';
 import { fetchPreparedBlocks, appendPreparedBlocks } from './notion_blocks';
 import { resolveDataSource } from './notion_client';
-import {
-  CreatePageResponse,
-} from '@notionhq/client';
+import { CreatePageResponse } from '@notionhq/client';
 
 export async function duplicatePage(notion: Client, databaseId: string) {
   const dataSourceId = await resolveDataSource(notion, databaseId);
@@ -20,10 +18,7 @@ export async function duplicatePage(notion: Client, databaseId: string) {
   return { databaseId, newPage, newBlocks };
 }
 
-async function queryLatestPage(
-  notion: Client,
-  databaseId: string
-) {
+async function queryLatestPage(notion: Client, databaseId: string) {
   const response = await notion.dataSources.query({
     data_source_id: databaseId,
     page_size: 1,
@@ -47,10 +42,7 @@ async function queryLatestPage(
   return page;
 }
 
-async function createPage(
-  notion: Client,
-  databaseId: string
-): Promise<CreatePageResponse> {
+async function createPage(notion: Client, databaseId: string): Promise<CreatePageResponse> {
   const todayStr = new Date().toLocaleString('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
