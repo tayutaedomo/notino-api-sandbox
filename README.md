@@ -1,6 +1,12 @@
 # notino-api-sandbox
 
-Notionの日次ページ作成・照会・複製を行うTypeScriptプログラムです。このREADMEはプロジェクトの概要とドキュメントの入口です。
+Notionの日次ページ作成・照会・複製を行うTypeScriptプログラムです。このREADMEは、利用と開発それぞれの目的に応じて文書を読む順番を案内します。
+
+## 目次
+
+- [主な機能](#主な機能)
+- [ツールを使う](#ツールを使う)
+- [開発と保守をする](#開発と保守をする)
 
 ## 主な機能
 
@@ -8,13 +14,23 @@ Notionの日次ページ作成・照会・複製を行うTypeScriptプログラ�
 - 照会：DB、ページ、ブロックの取得と検索。
 - 複製：プロパティと本文のコピー、TODOの未チェック化。
 
-## ドキュメント
+## ツールを使う
 
-| 知りたいこと | 文書 |
-|---|---|
-| 環境構築・環境変数・コマンド | [使い方](docs/usage.md) |
-| 各機能の仕様・コピーの制約 | [機能と保証する動作](docs/features.md) |
-| 開発時のテスト・確認範囲 | [通常のテスト](docs/testing.md) |
-| 専用DBでの最終確認・上限・ログ | [実API検証](docs/integration.md) |
-| 中断したDB登録の修復 | [検証DBの手動復旧](docs/integration-recovery.md) |
-| API差分・設計判断・本番への反映 | [Notion APIの保守方針](docs/notion-api.md) |
+### 普段使うCLI
+
+1. [コマンドラインでの使い方](docs/cli.md)：環境を準備し、日次コマンドを実行する。
+2. [機能と保証する動作](docs/features.md)：複製などの仕様・制約を必要に応じて確認する。
+
+### GCFを使う場合
+
+1. [GCFの使い方](docs/gcf.md)：クラウドへデプロイし、HTTPで呼び出す。
+2. [HTTPの機能仕様](docs/features.md#http)：引数・戻り値・エラーを確認する。
+
+## 開発と保守をする
+
+1. [機能と保証する動作](docs/features.md)：変更後も維持する仕様を把握する。
+2. [Notion APIの保守方針](docs/notion-api.md)：採用バージョン・API差分・設計判断を確認する。
+3. [通常のテスト](docs/testing.md)：モックと型チェックで変更を検証する。
+4. [実API検証](docs/integration.md)：最終確認が必要なときだけ、専用DBで明示実行する。
+
+検証DBの登録が中断した場合は、[検証DBの手動復旧](docs/integration-recovery.md)を参照してください。

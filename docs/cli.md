@@ -1,6 +1,6 @@
-# 使い方
+# コマンドラインでの使い方
 
-この文書は、環境構築・環境変数・実行コマンドを説明します。毎日の実行には `yarn all:create` を使います。機能の詳細は[機能仕様](features.md)、開発時の確認は[通常のテスト](testing.md)を参照してください。
+この文書は、普段使うCLIの環境構築・環境変数・実行コマンドを説明します。毎日の実行には `yarn all:create` を使います。機能の詳細は[機能仕様](features.md)を参照してください。
 
 ## 目次
 
@@ -8,7 +8,6 @@
 - [環境変数](#環境変数)
 - [日次作成](#日次作成)
 - [コマンド一覧](#コマンド一覧)
-- [GCFの実行](#gcfの実行)
 
 ## 実行環境
 
@@ -38,7 +37,6 @@ yarn install --frozen-lockfile
 
 - 実際のトークンやIDはGitに保存しません。
 - `.env` などのローカル設定ファイルはGitの除外対象です。
-- 実API検証の設定は[専用の環境変数](integration.md#事前準備)を使います。
 
 ### 複数データソースの指定
 
@@ -76,18 +74,3 @@ yarn all:create
 | `diary:dup` | 当日の日付・月・タグを設定したDiary複製 |
 | `auth` / `search` | 認証確認・検索 |
 | `diary:page` / `diary:blocks` | ページ・直下ブロック取得 |
-
-## GCFの実行
-
-### ビルドとローカル起動
-
-- `yarn gcf:build`：TypeScriptをビルド。
-- `yarn gcf:<機能>:local`：Functions Frameworkをローカル起動。
-- `<機能>` は `hello` / `auth` / `create` / `dup` / `copy`。
-- HTTP契約の確認は `yarn test:http` で実施します。
-
-### クラウドへのデプロイ
-
-- `yarn gcf:<機能>:deploy`：Node.js 24でデプロイ。
-- 実行するとクラウド環境を変更します。
-- クラウド実デプロイは今回の移行検証の対象外です。
