@@ -30,3 +30,11 @@ DBにデータソースが1件なら自動選択します。複数の場合は N
 - [SDK 5.27.0](https://github.com/makenotion/notion-sdk-js/releases/tag/v5.27.0)
 - [SDKの互換性](https://github.com/makenotion/notion-sdk-js#requirements-and-compatibility)
 - [GCFランタイム](https://docs.cloud.google.com/run/docs/runtimes/nodejs)
+
+## 依存関係と検証の決定事項
+
+Node.js 24では旧 Functions Framework の cloudevents 8 にあるNode.js上限制限がインストールを妨げるため、Frameworkを5.0.5（cloudevents 10）へ更新しました。最終版はエンジン制限を無視せずインストールします。
+
+テストは node:test、ts-node、Nock 14を使用します。旧SDKで日次コマンドを含む回帰テストを成功させてから新APIへ移行しました。新仕様の失敗テストを先に追加し、成功した段階でコミットします。コミットは Conventional Commits、日本語の短い件名、箇条書きの本文を使用します。
+
+専用DBの実API確認は README の準備手順に従います。実API確認前にmainへ反映せず、モックテストの成功と実APIでの確認結果を区別します。

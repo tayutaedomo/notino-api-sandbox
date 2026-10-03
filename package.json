@@ -38,7 +38,8 @@
     "gcf:copy:deploy": "yarn gcf:predeploy && gcloud functions deploy notionCopyPage --gen2 --region=asia-northeast1 --runtime=nodejs24 --trigger-http --allow-unauthenticated --source=dist/functions --set-env-vars NOTION_KEY=$NOTION_KEY",
     "test": "node --require ts-node/register --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
-    "test:http": "yarn gcf:build && node --require ts-node/register --test tests/http/*.test.cjs"
+    "test:http": "yarn gcf:build && node --require ts-node/register --test tests/http/*.test.cjs",
+    "test:integration": "node --env-file-if-exists=.env.test.local --require ts-node/register scripts/verify_integration.ts"
   },
   "dependencies": {
     "@notionhq/client": "5.27.0",
