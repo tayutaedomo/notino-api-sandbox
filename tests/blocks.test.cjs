@@ -6,6 +6,7 @@ const { copyPage } = require('../functions/lib/notion_copy_page');
 const { duplicatePage } = require('../functions/lib/notion_duplicate_page');
 nock.disableNetConnect();
 afterEach(() => { const pending = nock.pendingMocks(); nock.cleanAll(); assert.deepEqual(pending, []); });
+/** @param {string} mode @param {ReturnType<typeof block>[]} blocks */
 function setup(mode, blocks) {
   resolve(); if (mode === 'copy') schema();
   api().post('/v1/data_sources/ds-db/query').reply(200, list([page()]));
@@ -16,6 +17,7 @@ function setup(mode, blocks) {
     api().get('/v1/blocks/source/children').query(query => offset === 0 ? !query.start_cursor : query.start_cursor === 'cursor-' + offset).reply(200, response);
   }
 }
+/** @param {string} mode */
 function execute(mode) { return mode === 'copy' ? copyPage('test-key', { databaseId: 'db', searchProperty: 'Name', searchValue: 'Retro', sortProperty: 'Created time' }) : duplicatePage(client(), 'db'); }
 for (const mode of ['copy', 'diary']) for (const count of [0, 1, 100, 101, 250]) {
   test(mode + ' のブロック件数: ' + count, async () => {
@@ -33,7 +35,7 @@ for (const mode of ['copy', 'diary']) for (const count of [0, 1, 100, 101, 250])
       }).reply(200, list(Array.from({ length: size }, (_, i) => ({ id: 'new-' + (offset + i) }))));
     }
     const result = await execute(mode);
-    assert.equal(mode === 'copy' ? result.copiedBlocks : result.newBlocks.results.length, count);
+    assert.equal('copiedBlocks' in result ? result.copiedBlocks : result.newBlocks.results.length, count);
   });
 }
 for (const mode of ['copy', 'diary']) {

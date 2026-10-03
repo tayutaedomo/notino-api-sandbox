@@ -5,13 +5,16 @@ const { api, page, list, resolve, schema } = require('./helpers/fixtures.cjs');
 const { copyPage } = require('../functions/lib/notion_copy_page');
 nock.disableNetConnect();
 afterEach(() => { const pending = nock.pendingMocks(); nock.cleanAll(); assert.deepEqual(pending, []); });
+/** @param {Record<string, any>} properties */
 async function copy(properties) {
   resolve(); schema();
   api().post('/v1/data_sources/ds-db/query').reply(200, list([page('source', properties)]));
   api().get('/v1/blocks/source/children').query(true).reply(200, list([]));
+  /** @type {Record<string, any> | undefined} */
   let copied;
-  api().post('/v1/pages').reply((uri, body) => { copied = body.properties; return [200, page('new')]; });
+  api().post('/v1/pages').reply((uri, body) => { copied = (/** @type {{properties: Record<string, any>}} */ (body)).properties; return [200, page('new')]; });
   await copyPage('test-key', { databaseId: 'db', searchProperty: 'Name', searchValue: 'Retro', sortProperty: 'Created time' });
+  assert.ok(copied);
   return copied;
 }
 for (const status of [{ id: 'status-id', name: 'In progress', color: 'blue' }, null]) {

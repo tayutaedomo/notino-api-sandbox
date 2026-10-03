@@ -36,13 +36,13 @@ for (const [status, code] of [[401, 'unauthorized'], [403, 'restricted_resource'
   test('APIエラーを再試行せず伝える: ' + status, async () => {
     let calls = 0; resolve();
     api().persist().post('/v1/pages').reply(() => { calls++; return [status, { object: 'error', status, code, message: 'Test error' }]; });
-    await assert.rejects(createPage(client(), 'db', 'Retro'), e => e.code === code);
+    await assert.rejects(createPage(client(), 'db', 'Retro'), e => e instanceof Error && 'code' in e && e.code === code);
     assert.equal(calls, 1);
   });
 }
 test('タイムアウトを再試行しない', async () => {
   let calls = 0;
   const notion = createNotionClient('test-key', { timeoutMs: 20, fetch: () => { calls++; return new Promise(() => {}); } });
-  await assert.rejects(notion.users.list({}), e => e.code === 'notionhq_client_request_timeout');
+  await assert.rejects(notion.users.list({}), e => e instanceof Error && 'code' in e && e.code === 'notionhq_client_request_timeout');
   assert.equal(calls, 1);
 });
