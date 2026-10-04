@@ -11,7 +11,8 @@
 
 ## 実行環境
 
-- Node.js 24以上。`package.json` の `engines.node` で宣言します。
+- Node.js 24 系。`package.json` の `engines.node` で宣言します。
+- GCF用の間接依存 `cloudevents@10.0.0` の `engines.node` が `>=20 <=24` のため、現在はNode.js 24 系を使用します。
 - Yarn Classic 1.22.x。
 - Notion SDK 5.27.0 / API 2026-03-11 / TypeScript 5.9.x。
 

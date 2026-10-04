@@ -14,7 +14,8 @@
 
 ### 実行環境
 
-- Node.js 24以上、Yarn Classic 1.22.x。
+- Node.js 24 系、Yarn Classic 1.22.x。
+- GCF用の間接依存 `cloudevents@10.0.0` の `engines.node` が `>=20 <=24` のため、現在はNode.js 24 系を使用します。
 - Google Cloud SDK（`gcloud`）。
 - デプロイ先プロジェクトと認証・権限の設定。
 

@@ -6,7 +6,7 @@
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   },
   "scripts": {
     "all:create": "yarn retro:create && yarn body:create && yarn sleep:create",
