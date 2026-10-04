@@ -1,4 +1,4 @@
-# notino-api-sandbox
+# notion-my-toolbox
 
 Notionの日次ページ作成・照会・複製を行うTypeScriptプログラムです。このREADMEは、利用と開発それぞれの目的に応じて文書を読む順番を案内します。
 
