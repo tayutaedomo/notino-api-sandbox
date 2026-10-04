@@ -1,10 +1,13 @@
 import { copyPage } from '../functions/lib/notion_copy_page';
 
 async function main(): Promise<void> {
-  const [databaseId, searchProperty, searchValue, sortProperty, sortDirection = 'descending'] = process.argv.slice(2);
+  const [databaseId, searchProperty, searchValue, sortProperty, sortDirection = 'descending'] =
+    process.argv.slice(2);
 
   if (!databaseId || !searchProperty || !searchValue || !sortProperty) {
-    console.error('Usage: node copy_page.ts <database_id> <search_property> <search_value> <sort_property> [sort_direction]');
+    console.error(
+      'Usage: node copy_page.ts <database_id> <search_property> <search_value> <sort_property> [sort_direction]',
+    );
     process.exit(1);
   }
 
@@ -16,7 +19,7 @@ async function main(): Promise<void> {
       sortProperty,
       sortDirection,
     });
-    
+
     console.log('Created new page:', result.newPage);
     console.log('Copied blocks:', result.copiedBlocks);
   } catch (error) {

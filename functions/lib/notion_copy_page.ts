@@ -1,40 +1,17 @@
-import { Client } from '@notionhq/client';
 import {
-  CreatePageResponse,
-  PageObjectResponse,
-  QueryDatabaseParameters,
-  CreatePageParameters,
-} from '@notionhq/client/build/src/api-endpoints';
+  type Client,
+  type CreatePageParameters,
+  type CreatePageResponse,
+  isFullPage,
+  type PageObjectResponse,
+  type QueryDataSourceParameters,
+} from '@notionhq/client';
+import { appendPreparedBlocks, cleanRichText, fetchPreparedBlocks } from './notion_blocks';
+import { createNotionClient, resolveDataSource } from './notion_client';
 
-type DatabaseFilter = QueryDatabaseParameters['filter'];
+type DataSourceFilter = QueryDataSourceParameters['filter'];
 type CreateProperties = CreatePageParameters['properties'];
 type SourceProperties = PageObjectResponse['properties'];
-
-interface NotionUser {
-  id: string;
-  name?: string;
-  avatar_url?: string;
-}
-
-interface NotionParent {
-  type: string;
-  page_id?: string;
-  database_id?: string;
-  workspace?: boolean;
-}
-
-interface BlockWithChildren {
-  id: string;
-  type: string;
-  has_children: boolean;
-  created_time: string;
-  created_by: NotionUser;
-  last_edited_time: string;
-  last_edited_by: NotionUser;
-  parent: NotionParent;
-  children?: BlockWithChildren[];
-  [key: string]: unknown;
-}
 
 export interface CopyPageParams {
   databaseId: string;
@@ -50,11 +27,8 @@ export interface CopyPageResult {
   copiedBlocks: number;
 }
 
-export async function copyPage(
-  notionKey: string,
-  params: CopyPageParams
-): Promise<CopyPageResult> {
-  const notion = new Client({ auth: notionKey });
+export async function copyPage(notionKey: string, params: CopyPageParams): Promise<CopyPageResult> {
+  const notion = createNotionClient(notionKey);
   const {
     databaseId,
     searchProperty,
@@ -63,21 +37,22 @@ export async function copyPage(
     sortDirection = 'descending',
   } = params;
 
+  const dataSourceId = await resolveDataSource(notion, databaseId);
   const sourcePage = await queryPage(
     notion,
-    databaseId,
+    dataSourceId,
     searchProperty,
     searchValue,
     sortProperty,
-    sortDirection
+    sortDirection,
   );
   if (!sourcePage) {
     throw new Error('No matching page found');
   }
 
-  const sourceBlocks = await queryPageBlocks(notion, sourcePage.id);
-  const newPage = await createPageCopy(notion, databaseId, sourcePage);
-  const newBlocks = await appendBlocks(notion, newPage.id, sourceBlocks);
+  const sourceBlocks = await fetchPreparedBlocks(notion, sourcePage.id);
+  const newPage = await createPageCopy(notion, dataSourceId, sourcePage);
+  const newBlocks = await appendPreparedBlocks(notion, newPage.id, sourceBlocks);
 
   return {
     sourcePage: { id: sourcePage.id },
@@ -92,102 +67,51 @@ async function queryPage(
   searchProperty: string,
   searchValue: string,
   sortProperty: string,
-  sortDirection: string
+  sortDirection: string,
 ): Promise<PageObjectResponse | null> {
-  const filter = createFilter(searchProperty, searchValue);
+  const source = await notion.dataSources.retrieve({ data_source_id: databaseId });
+  if (!('properties' in source)) throw new Error('Data source schema is unavailable.');
+  const property =
+    source.properties[searchProperty] ||
+    Object.values(source.properties).find((item) => item.id === searchProperty);
+  if (!property || (property.type !== 'title' && property.type !== 'rich_text')) {
+    throw new Error('Search property must be title or rich_text.');
+  }
+  const filter: DataSourceFilter =
+    property.type === 'title'
+      ? { property: searchProperty, title: { contains: searchValue } }
+      : { property: searchProperty, rich_text: { contains: searchValue } };
+  if (sortDirection !== 'ascending' && sortDirection !== 'descending')
+    throw new Error('Invalid sort direction.');
 
-  const response = await notion.databases.query({
-    database_id: databaseId,
+  const response = await notion.dataSources.query({
+    data_source_id: databaseId,
     page_size: 1,
     filter,
     sorts: [
       {
         property: sortProperty,
-        direction: sortDirection as 'ascending' | 'descending',
+        direction: sortDirection,
       },
     ],
   });
 
-  return response.results.length > 0
-    ? (response.results[0] as PageObjectResponse)
-    : null;
-}
-
-function createFilter(property: string, value: string): DatabaseFilter {
-  return {
-    or: [
-      {
-        property,
-        title: {
-          contains: value,
-        },
-      },
-      {
-        property,
-        rich_text: {
-          contains: value,
-        },
-      },
-    ],
-  };
-}
-
-async function queryPageBlocks(
-  notion: Client,
-  pageId: string
-): Promise<BlockWithChildren[]> {
-  return await fetchBlocksRecursively(notion, pageId);
-}
-
-async function fetchBlocksRecursively(
-  notion: Client,
-  blockId: string,
-  depth: number = 0
-): Promise<BlockWithChildren[]> {
-  const blocks: BlockWithChildren[] = [];
-  let cursor: string | undefined = undefined;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await notion.blocks.children.list({
-      block_id: blockId,
-      page_size: 100,
-      start_cursor: cursor,
-    });
-
-    for (const block of response.results) {
-      if ('type' in block) {
-        const blockWithChildren: BlockWithChildren = block as BlockWithChildren;
-
-        if (block.has_children) {
-          blockWithChildren.children = await fetchBlocksRecursively(
-            notion,
-            block.id,
-            depth + 1
-          );
-        }
-
-        blocks.push(blockWithChildren);
-      }
-    }
-
-    hasMore = response.has_more;
-    cursor = response.next_cursor || undefined;
-  }
-
-  return blocks;
+  const page = response.results[0];
+  if (!page) return null;
+  if (!isFullPage(page)) throw new Error('Source page properties are unavailable.');
+  return page;
 }
 
 async function createPageCopy(
   notion: Client,
   databaseId: string,
-  sourcePage: PageObjectResponse
+  sourcePage: PageObjectResponse,
 ): Promise<CreatePageResponse> {
   const properties = copyProperties(sourcePage.properties);
 
   const createPageParams: CreatePageParameters = {
     parent: {
-      database_id: databaseId,
+      data_source_id: databaseId,
     },
     properties,
   };
@@ -207,87 +131,55 @@ async function createPageCopy(
 }
 
 function copyProperties(sourceProperties: SourceProperties): CreateProperties {
-  const copiedProperties: CreateProperties = {};
-
+  const copied: CreateProperties = {};
   for (const [key, property] of Object.entries(sourceProperties)) {
     switch (property.type) {
       case 'title':
-        copiedProperties[key] = {
-          title: property.title as any,
-        };
+        copied[key] = { title: cleanRichText(property.title) };
         break;
       case 'rich_text':
-        copiedProperties[key] = {
-          rich_text: property.rich_text as any,
-        };
+        copied[key] = { rich_text: cleanRichText(property.rich_text) };
         break;
       case 'number':
-        copiedProperties[key] = {
-          number: property.number,
-        };
+        copied[key] = { number: property.number };
         break;
       case 'select':
-        if (property.select) {
-          copiedProperties[key] = {
-            select: {
-              name: property.select.name,
-            },
-          };
-        }
+        copied[key] = { select: property.select ? { name: property.select.name } : null };
+        break;
+      case 'status':
+        copied[key] = { status: property.status ? { name: property.status.name } : null };
         break;
       case 'multi_select':
-        copiedProperties[key] = {
-          multi_select: property.multi_select.map((item) => ({
-            name: item.name,
-          })),
-        };
+        copied[key] = { multi_select: property.multi_select.map((item) => ({ name: item.name })) };
         break;
       case 'date':
-        if (property.date) {
-          copiedProperties[key] = {
-            date: property.date,
-          };
-        }
+        copied[key] = { date: property.date };
         break;
       case 'checkbox':
-        copiedProperties[key] = {
-          checkbox: property.checkbox,
-        };
+        copied[key] = { checkbox: property.checkbox };
         break;
       case 'url':
-        if (property.url) {
-          copiedProperties[key] = {
-            url: property.url,
-          };
-        }
+        copied[key] = { url: property.url };
         break;
       case 'email':
-        if (property.email) {
-          copiedProperties[key] = {
-            email: property.email,
-          };
-        }
+        copied[key] = { email: property.email };
         break;
       case 'phone_number':
-        if (property.phone_number) {
-          copiedProperties[key] = {
-            phone_number: property.phone_number,
-          };
-        }
+        copied[key] = { phone_number: property.phone_number };
         break;
       case 'relation':
-        copiedProperties[key] = {
-          relation: property.relation,
-        };
+        copied[key] = { relation: property.relation.map((item) => ({ id: item.id })) };
         break;
       case 'people':
-        copiedProperties[key] = {
-          people: property.people,
-        };
+        copied[key] = { people: property.people.map((item) => ({ id: item.id })) };
         break;
       case 'files':
-        copiedProperties[key] = {
-          files: property.files,
+        copied[key] = {
+          files: property.files.map((item) =>
+            item.type === 'external'
+              ? { name: item.name, type: 'external', external: { url: item.external.url } }
+              : { name: item.name, type: 'file', file: { url: item.file.url } },
+          ),
         };
         break;
       case 'formula':
@@ -296,141 +188,13 @@ function copyProperties(sourceProperties: SourceProperties): CreateProperties {
       case 'created_by':
       case 'last_edited_time':
       case 'last_edited_by':
+      case 'unique_id':
+      case 'button':
+      case 'verification':
         break;
       default:
-        console.warn(
-          `Unhandled property type: ${(property as { type: string }).type}`
-        );
-        break;
+        console.warn('Unhandled property type:', (property as { type: string }).type);
     }
   }
-
-  return copiedProperties;
-}
-
-async function appendBlocks(
-  notion: Client,
-  pageId: string,
-  sourceBlocks: BlockWithChildren[]
-) {
-  const blocksToAppend: any[] = [];
-  const blocksWithChildrenMap: Map<number, BlockWithChildren[]> = new Map();
-
-  // 最初に親ブロックのみを準備し、子ブロックは別途記録
-  for (let i = 0; i < sourceBlocks.length; i++) {
-    const block = sourceBlocks[i];
-    const {
-      id,
-      created_time,
-      created_by,
-      last_edited_time,
-      last_edited_by,
-      parent,
-      children,
-      ...blockWithoutMetadata
-    } = block;
-
-    // ブロック内容のクリーンアップ
-    const cleanedBlock = cleanBlockContent(blockWithoutMetadata);
-
-    if (cleanedBlock.type === 'to_do' && cleanedBlock.to_do) {
-      (cleanedBlock.to_do as { checked: boolean }).checked = false;
-    }
-
-    // 子ブロックがある場合は別途記録（APIには送信しない）
-    if (children && children.length > 0) {
-      blocksWithChildrenMap.set(i, children);
-    }
-
-    blocksToAppend.push(cleanedBlock);
-  }
-
-  // 親ブロックを追加
-  const result = await notion.blocks.children.append({
-    block_id: pageId,
-    children: blocksToAppend,
-  });
-
-  // 子ブロックがあるものについて、順次追加（再帰的に処理）
-  for (const [blockIndex, children] of blocksWithChildrenMap.entries()) {
-    const parentBlockId = result.results[blockIndex].id;
-    await appendBlocks(notion, parentBlockId, children);
-  }
-
-  return result;
-}
-
-function cleanBlockContent(block: any): any {
-  const cleaned = JSON.parse(JSON.stringify(block));
-
-  // rich_textを含むブロックタイプをクリーンアップ
-  const blockTypeProperty = cleaned[cleaned.type];
-  if (blockTypeProperty && blockTypeProperty.rich_text) {
-    blockTypeProperty.rich_text = cleanRichText(blockTypeProperty.rich_text);
-  }
-
-  return cleaned;
-}
-
-function cleanRichText(richText: any[]): any[] {
-  return richText.map((item: any) => {
-    if (item.mention) {
-      if (isValidMention(item.mention)) {
-        return item;
-      } else {
-        return {
-          type: 'text',
-          text: {
-            content: item.plain_text || '[mention]',
-            link: null,
-          },
-          annotations: item.annotations || {},
-        };
-      }
-    }
-    return item;
-  });
-}
-
-function isValidMention(mention: any): boolean {
-  const mentionObj = mention;
-
-  // userタイプ
-  if (
-    mentionObj.user?.id &&
-    typeof mentionObj.user.id === 'string' &&
-    mentionObj.user.id.length > 0
-  ) {
-    return true;
-  }
-
-  // pageタイプ
-  if (
-    mentionObj.page?.id &&
-    typeof mentionObj.page.id === 'string' &&
-    mentionObj.page.id.length > 0
-  ) {
-    return true;
-  }
-
-  // databaseタイプ
-  if (
-    mentionObj.database?.id &&
-    typeof mentionObj.database.id === 'string' &&
-    mentionObj.database.id.length > 0
-  ) {
-    return true;
-  }
-
-  // dateタイプ
-  if (mentionObj.date?.start && typeof mentionObj.date.start === 'string') {
-    return true;
-  }
-
-  // template_mentionタイプ
-  if (mentionObj.template_mention?.type) {
-    return true;
-  }
-
-  return false;
+  return copied;
 }

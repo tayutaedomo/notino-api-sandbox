@@ -1,10 +1,8 @@
-import { Client } from '@notionhq/client';
+import type { Client } from '@notionhq/client';
+import { resolveDataSource } from './notion_client';
 
-export async function createPage(
-  notion: Client,
-  databaseId: string,
-  titleSuffix: string
-) {
+export async function createPage(notion: Client, databaseId: string, titleSuffix: string) {
+  const dataSourceId = await resolveDataSource(notion, databaseId);
   // Get today's date as `YYYY-MM-DD` format
   const todayStr = new Date().toLocaleString('ja-JP', {
     timeZone: 'Asia/Tokyo',
@@ -20,7 +18,8 @@ export async function createPage(
 
   const newPage = await notion.pages.create({
     parent: {
-      database_id: databaseId,
+      type: 'data_source_id',
+      data_source_id: dataSourceId,
     },
     properties: {
       Name: {
